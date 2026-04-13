@@ -1,0 +1,986 @@
+﻿TALENT-IQ CAREER COPILOT
+Technical Design Document
+LLD  |  Database Schema  |  Folder Structure  |  API Contracts
+Next.js  TypeScript  Tailwind  FastAPI  PostgreSQL  pgvector  Redis  Celery  OpenAI/Gemini  LangChain  PyMuPDF  Clerk  Stream  Monaco  Piston  Docker
+1. Technology Stack Overview
+Layer
+Technology
+Purpose
+Frontend
+Next.js 14 + TypeScript
+App Router SSR/CSR hybrid
+Styling
+Tailwind CSS + shadcn/ui
+Design system & component library
+State
+Zustand + TanStack Query
+Client state & server cache
+Rich Editor
+Monaco Editor
+In-browser code editor (VS Code engine)
+Realtime
+Stream Video + Chat SDK
+Video rooms & live messaging
+Auth
+Clerk
+Identity, JWT, Google/GitHub OAuth
+Backend
+FastAPI (Python)
+REST API + background orchestration
+ORM
+SQLAlchemy + Alembic
+DB access layer & migrations
+Primary DB
+PostgreSQL 16
+Transactional data
+Vector DB
+pgvector (PostgreSQL ext)
+Embedding storage & ANN similarity search
+Cache/Queue
+Redis 7
+Caching + Celery task broker
+Workers
+Celery
+Async background job processing
+AI Orchestration
+LangChain / LangGraph
+Chains, agents, RAG pipelines
+LLM
+OpenAI GPT-4o / Gemini 1.5 Pro
+Completions, embeddings, vision
+PDF Parsing
+PyMuPDF (fitz)
+Text & structure extraction from resumes
+Code Execution
+Piston API
+Sandboxed multi-language execution
+Containerisation
+Docker + Docker Compose
+Multi-service orchestration
+2. Folder Structure
+2.1 Repository Root
+talent-iq/
+├── frontend/           # Next.js 14 App Router
+├── backend/            # FastAPI modular monolith
+├── docker-compose.yml
+├── .env.example
+└── README.md
+2.2 Frontend — /frontend
+frontend/
+├── app/
+│   ├── (auth)/
+│   │   ├── sign-in/page.tsx
+│   │   └── sign-up/page.tsx
+│   ├── (dashboard)/
+│   │   ├── layout.tsx             # Sidebar + top nav
+│   │   ├── dashboard/page.tsx
+│   │   ├── resume/
+│   │   │   ├── page.tsx           # Upload + history
+│   │   │   └── [id]/page.tsx      # Parse result view
+│   │   ├── job-matcher/page.tsx
+│   │   ├── mock-interview/
+│   │   │   ├── page.tsx
+│   │   │   └── [id]/page.tsx      # Live interview session
+│   │   ├── live-room/
+│   │   │   ├── page.tsx
+│   │   │   └── [roomId]/page.tsx  # Video + editor + chat
+│   │   ├── copilot/page.tsx       # AI mentor chat
+│   │   ├── tracker/page.tsx
+│   │   └── analytics/page.tsx
+│   ├── api/webhooks/clerk/route.ts
+│   └── layout.tsx
+├── components/
+│   ├── ui/                        # shadcn primitives
+│   ├── resume/
+│   │   ├── ResumeUploader.tsx
+│   │   ├── ParsedResumeView.tsx
+│   │   └── AtsScoreCard.tsx
+│   ├── interview/
+│   │   ├── QuestionCard.tsx
+│   │   ├── AnswerInput.tsx
+│   │   └── FeedbackReport.tsx
+│   ├── live-room/
+│   │   ├── VideoPanel.tsx
+│   │   ├── CodeEditor.tsx         # Monaco wrapper
+│   │   └── ChatPanel.tsx
+│   └── copilot/
+│       ├── ChatWindow.tsx
+│       └── MessageBubble.tsx
+├── lib/
+│   ├── api.ts                     # Axios instance + interceptors
+│   ├── stream.ts                  # Stream SDK initialisation
+│   └── utils.ts
+├── hooks/
+│   ├── useResume.ts
+│   ├── useInterview.ts
+│   └── useLiveRoom.ts
+├── store/                         # Zustand slices
+├── types/
+└── tailwind.config.ts
+2.3 Backend — /backend
+backend/
+├── main.py                        # FastAPI app factory + router registration
+├── core/
+│   ├── config.py                  # Pydantic BaseSettings
+│   ├── database.py                # SQLAlchemy async engine
+│   ├── redis.py                   # Redis client
+│   └── deps.py                    # Dependency injection (get_db, get_user)
+├── modules/
+│   ├── auth/
+│   │   ├── router.py
+│   │   ├── service.py             # Clerk webhook handler + JWT verify
+│   │   └── schemas.py
+│   ├── resume/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── parser.py              # PyMuPDF text extraction
+│   │   ├── embedder.py            # Chunking + pgvector ingestion
+│   │   ├── tasks.py               # Celery tasks
+│   │   ├── models.py              # SQLAlchemy ORM models
+│   │   └── schemas.py             # Pydantic request/response
+│   ├── jobs/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── matcher.py             # Hybrid scoring engine
+│   │   ├── tasks.py
+│   │   ├── models.py
+│   │   └── schemas.py
+│   ├── copilot/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── chains.py              # LangChain chains
+│   │   ├── memory.py              # pgvector memory retrieval
+│   │   ├── agents.py              # LangGraph multi-agent
+│   │   ├── models.py
+│   │   └── schemas.py
+│   ├── interview/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── evaluator.py           # 6-dimension answer scorer
+│   │   ├── question_gen.py
+│   │   ├── models.py
+│   │   └── schemas.py
+│   ├── live_room/
+│   │   ├── router.py
+│   │   ├── service.py             # Stream token minting
+│   │   ├── executor.py            # Piston API client
+│   │   ├── models.py
+│   │   └── schemas.py
+│   ├── tracker/
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── models.py
+│   │   └── schemas.py
+│   └── analytics/
+│       ├── router.py
+│       ├── service.py
+│       └── schemas.py
+├── workers/
+│   ├── celery_app.py              # Celery factory
+│   └── beat_schedule.py           # Periodic tasks
+├── vector/
+│   ├── store.py                   # pgvector CRUD helpers
+│   └── retriever.py               # Similarity search
+├── alembic/                       # DB migrations
+├── tests/
+└── requirements.txt
+3. Database Schema
+Engine: PostgreSQL 16 with pgvector extension. All primary keys are UUID. Timestamps use TIMESTAMPTZ.
+3.1 users
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK DEFAULT gen_random_uuid()
+clerk_user_id
+VARCHAR(128)
+UNIQUE NOT NULL
+Clerk external ID
+email
+VARCHAR(255)
+UNIQUE NOT NULL
+full_name
+VARCHAR(255)
+NOT NULL
+role
+VARCHAR(16)
+DEFAULT 'candidate'
+'candidate' | 'recruiter' | 'admin'
+avatar_url
+TEXT
+NULLABLE
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+updated_at
+TIMESTAMPTZ
+DEFAULT now()
+3.2 user_profiles
+Column
+Type
+Constraints
+Notes
+user_id
+UUID
+PK FK -> users.id CASCADE
+1-to-1 with users
+target_roles
+TEXT[]
+e.g. ['SDE','ML Engineer']
+experience_level
+VARCHAR(32)
+'fresher'|'junior'|'mid'|'senior'
+preferred_locations
+TEXT[]
+skills_summary
+TEXT
+AI-generated summary
+bio
+TEXT
+goals_json
+JSONB
+Structured career goals
+3.3 resumes
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+user_id
+UUID
+FK -> users.id
+file_url
+TEXT
+NOT NULL
+S3 / Cloudinary URL
+file_name
+VARCHAR(255)
+Original filename
+raw_text
+TEXT
+Full extracted text via PyMuPDF
+parsed_json
+JSONB
+Structured skills, exp, edu, projects
+ats_score
+SMALLINT
+CHECK 0-100
+quality_score
+SMALLINT
+CHECK 0-100
+parse_status
+VARCHAR(16)
+DEFAULT 'pending'
+'pending'|'done'|'failed'
+current_version
+SMALLINT
+DEFAULT 1
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.4 resume_versions
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+resume_id
+UUID
+FK -> resumes.id
+version_number
+SMALLINT
+NOT NULL
+content_json
+JSONB
+NOT NULL
+Snapshot of parsed_json
+diff_summary
+TEXT
+Human-readable change notes
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.5 jobs
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+source
+VARCHAR(16)
+'manual' | 'scraper'
+title
+VARCHAR(255)
+NOT NULL
+company
+VARCHAR(255)
+location
+VARCHAR(255)
+jd_text
+TEXT
+NOT NULL
+Raw job description input
+parsed_json
+JSONB
+must_have[], nice_to_have[], years
+url
+TEXT
+Source URL if scraped
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.6 job_matches
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+user_id
+UUID
+FK -> users.id
+resume_id
+UUID
+FK -> resumes.id
+job_id
+UUID
+FK -> jobs.id
+match_score
+SMALLINT
+CHECK 0-100
+Hybrid weighted score
+ats_score
+SMALLINT
+CHECK 0-100
+Keyword density score
+missing_skills
+TEXT[]
+Skills in JD but not in resume
+recommendations
+JSONB
+[{ skill, resource, priority }]
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.7 interviews
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+user_id
+UUID
+FK -> users.id
+type
+VARCHAR(32)
+'hr'|'technical'|'coding'|'system_design'
+mode
+VARCHAR(16)
+'text' | 'voice' | 'live'
+status
+VARCHAR(16)
+DEFAULT 'pending'
+'pending'|'active'|'done'
+resume_id
+UUID
+NULLABLE FK
+Context resume
+job_id
+UUID
+NULLABLE FK
+Context JD
+overall_score
+SMALLINT
+0-100 aggregate
+feedback_json
+JSONB
+Summary + coaching tips
+transcript_url
+TEXT
+S3 URL for voice transcripts
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.8 interview_questions
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+interview_id
+UUID
+FK -> interviews.id CASCADE
+sequence
+SMALLINT
+NOT NULL
+Display order
+question_text
+TEXT
+NOT NULL
+answer_text
+TEXT
+User's submitted answer
+score
+SMALLINT
+0-100
+feedback
+TEXT
+Per-question LLM feedback
+dimension_scores
+JSONB
+{ accuracy, clarity, relevance, ... }
+3.9 live_rooms
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+room_key
+VARCHAR(64)
+UNIQUE NOT NULL
+Stream Video call ID
+created_by
+UUID
+FK -> users.id
+Recruiter user
+candidate_id
+UUID
+NULLABLE FK
+status
+VARCHAR(16)
+DEFAULT 'open'
+'open'|'active'|'closed'
+is_locked
+BOOLEAN
+DEFAULT false
+Blocks new joins
+participant_limit
+SMALLINT
+DEFAULT 2
+recording_url
+TEXT
+Stream recording URL
+notes_json
+JSONB
+Interviewer structured notes
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.10 chats
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+user_id
+UUID
+FK -> users.id
+conversation_type
+VARCHAR(32)
+'mentor'|'resume'|'cover_letter'|'roadmap'
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.11 chat_messages
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+chat_id
+UUID
+FK -> chats.id CASCADE
+role
+VARCHAR(16)
+'user' | 'assistant' | 'system'
+content
+TEXT
+NOT NULL
+token_count
+INT
+For LLM cost tracking
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+3.12 applications
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK
+user_id
+UUID
+FK -> users.id
+job_id
+UUID
+FK -> jobs.id
+status
+VARCHAR(16)
+DEFAULT 'saved'
+'saved'|'applied'|'screening'|'interview'|'offer'|'rejected'
+notes
+TEXT
+applied_at
+TIMESTAMPTZ
+updated_at
+TIMESTAMPTZ
+DEFAULT now()
+3.13 document_embeddings (pgvector)
+CREATE EXTENSION IF NOT EXISTS vector;
+Column
+Type
+Constraints
+Notes
+id
+UUID
+PK DEFAULT gen_random_uuid()
+user_id
+UUID
+FK -> users.id
+Tenant isolation
+doc_type
+VARCHAR(32)
+NOT NULL
+'resume'|'jd'|'chat'|'note'|'transcript'
+doc_id
+UUID
+FK to source table row
+chunk_index
+SMALLINT
+Chunk order within document
+content
+TEXT
+NOT NULL
+Raw chunk text
+embedding
+vector(1536)
+NOT NULL
+OpenAI ada-002 dimensions
+metadata
+JSONB
+{ section, source, created_at }
+created_at
+TIMESTAMPTZ
+DEFAULT now()
+-- ANN index for fast cosine similarity search
+CREATE INDEX ON document_embeddings
+  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+4. Low-Level Design (LLD)
+4.1 Resume Processing Pipeline
+End-to-End Flow
+User uploads PDF via POST /resumes/upload
+FastAPI saves file to S3, inserts resumes row with parse_status='pending'
+Celery task resume_parse_task(resume_id) pushed to Redis high-priority queue
+Worker fetches file from S3 URL
+PyMuPDF (fitz) opens file, joins page text into raw_text
+Section detector (regex) splits text into SKILLS / EXPERIENCE / EDUCATION / PROJECTS
+LangChain extraction chain sends sections to GPT-4o → returns structured ResumeProfile
+ATS scorer computes keyword hit-rate against 500-word tech vocabulary → ats_score
+Embedder: sliding window chunker (512 tokens, 64 overlap) → OpenAI embeddings → upsert to document_embeddings
+resumes row updated: parse_status='done', parsed_json, ats_score
+Frontend polls GET /resumes/{id} until parse_status='done'
+resume/parser.py — Key Functions
+Function
+Input
+Output
+Description
+extract_text(file_path)
+str path
+str
+fitz.open() iterates pages, joins page.get_text()
+detect_sections(raw_text)
+str
+dict[str,str]
+Regex heading detection for standard resume sections
+parse_with_llm(sections)
+dict
+ResumeProfile
+LangChain extraction chain with Pydantic output parser
+compute_ats_score(parsed)
+ResumeProfile
+int 0-100
+Keyword overlap vs standard tech vocabulary list
+chunk_and_embed(resume_id, text)
+UUID, str
+list[UUID]
+Sliding window split -> ada-002 embed -> pgvector upsert
+4.2 Job Matching Service
+Hybrid Scoring Formula
+score = (skills_overlap    * 0.40)
+      + (semantic_sim      * 0.20)
+      + (project_relevance * 0.15)
+      + (exp_alignment     * 0.10)
+      + (keyword_density   * 0.10)
+      + (bonus_factors     * 0.05)
+jobs/matcher.py — Key Functions
+Function
+Input
+Output
+Description
+parse_jd(jd_text)
+str
+JobProfile
+LLM extracts must-have skills, nice-to-have, years exp, tools
+skills_overlap(resume, jd)
+two Profiles
+float 0-1
+Jaccard similarity on normalised skill token sets
+semantic_score(resume_id, jd_emb)
+UUID, vector
+float 0-1
+pgvector cosine_similarity against resume chunks
+project_relevance(resume, jd)
+two Profiles
+float 0-1
+Project tech stack overlap scoring
+build_match_result(scores)
+dict
+MatchResult
+Weighted aggregation + persist to job_matches
+4.3 AI Copilot Service
+Intent Routing
+Fast classifier LLM call detects intent from user message
+resume_improve  ->  ResumeImprovementChain
+cover_letter    ->  CoverLetterChain
+interview_prep  ->  QuestionGenerationChain
+roadmap         ->  RoadmapChain
+general         ->  MentorConversationChain (RAG with memory)
+copilot/chains.py — Key Chains
+Chain
+Context Injected
+Output Format
+MentorConversationChain
+Resume profile + top-5 past chats (pgvector) + user goals
+SSE streaming text
+ResumeImprovementChain
+Selected section text + target JD + resume profile
+Original vs improved bullets with diff
+CoverLetterChain
+Full resume profile + JD + tone preference
+Formatted cover letter string
+QuestionGenerationChain
+Role type + difficulty + resume + JD
+Ordered list of { id, text, difficulty, category }
+RoadmapChain
+Skill gap analysis + target_role + timeline_weeks
+Week-by-week plan with topics + resources
+copilot/memory.py — Vector Memory Retrieval
+def retrieve_context(user_id: UUID, query: str, k: int = 5) -> list[str]:
+    query_emb = openai.embed(query)
+    return pgvector_search(
+        user_id=user_id,
+        embedding=query_emb,
+        doc_types=['chat', 'resume', 'note'],
+        k=k,
+        metric='cosine'
+    )
+4.4 Mock Interview Engine
+interview/service.py — Core Functions
+Function
+Trigger
+Action
+start_interview(user_id, config)
+POST /interviews/start
+Generate question plan via LLM, persist interview + questions, return question[0]
+submit_answer(interview_id, q_id, answer)
+POST /interviews/{id}/answer
+Score answer across 6 dimensions, save score + feedback, return next question or done signal
+evaluate_answer(question, answer, context)
+Internal (called by submit_answer)
+LLM prompt with rubric -> JSON { dimension_scores, feedback }
+finish_interview(interview_id)
+POST /interviews/{id}/finish
+Aggregate dimension scores -> overall_score, generate summary, set status='done'
+generate_report(interview_id)
+GET /interviews/{id}/report
+Full transcript + per-question breakdown + personalized coaching tips
+Scoring Dimensions
+Dimension
+Weight
+Evaluation Method
+Technical Accuracy
+30%
+LLM domain-specific evaluation against model answer
+Relevance
+20%
+Cosine similarity between answer embedding and question embedding
+Communication Clarity
+20%
+Readability metrics + structure analysis
+Completeness
+15%
+Checklist coverage vs expected answer components
+Conciseness
+10%
+Information density ratio
+Confidence Markers
+5%
+Linguistic hedging pattern detection
+4.5 Live Interview Room
+live_room/service.py — Key Functions
+Function
+Action
+create_room(recruiter_id)
+Generate UUID room_key, create Stream Video call via SDK, persist live_rooms row, return room_key + minted Stream token
+join_room(room_key, user_id)
+Verify room is open + not locked + under participant_limit -> mint Stream token for joining user, return token + call IDs
+lock_room(room_key)
+Set is_locked=true in DB, update Stream call settings to reject new participants
+execute_code(language, code, stdin)
+POST to Piston API /api/v2/execute -> return ExecutionResult { stdout, stderr, exit_code, runtime_ms }
+end_room(room_key)
+Set status='closed', call Stream API to stop recording, store recording_url in DB
+live_room/executor.py — Piston Integration
+async def run_code(language: str, code: str, stdin: str = '') -> ExecutionResult:
+    payload = {
+        "language": language,
+        "version": LANGUAGE_VERSIONS[language],  # pinned per-language
+        "files": [{"content": code}],
+        "stdin": stdin,
+        "run_timeout": 5000,    # 5s wall-clock limit
+        "compile_timeout": 10000
+    }
+    resp = await httpx.post(PISTON_URL + '/api/v2/execute', json=payload)
+    return ExecutionResult(**resp.json()['run'])
+4.6 Background Workers (Celery)
+Task
+Queue
+Trigger
+What It Does
+resume_parse_task
+high
+Resume upload
+PyMuPDF extract -> LLM parse -> embed -> pgvector upsert
+jd_parse_task
+high
+JD submit
+LLM extracts structured job profile from raw JD text
+match_compute_task
+default
+POST /matches/create
+Run hybrid scorer, persist result to job_matches
+cover_letter_task
+default
+POST /copilot/cover-letter
+LangChain CoverLetterChain -> stream result
+embed_chat_task
+low
+After chat message save
+Embed message -> upsert to document_embeddings
+notify_task
+low
+Various events
+Send push / email notification via provider
+analytics_agg_task
+low
+Nightly Celery beat
+Aggregate daily metrics into analytics_events table
+5. API Contracts
+Base URL: https://api.talentiq.dev/v1
+Auth: All endpoints (except /auth/webhook) require  Authorization: Bearer <Clerk JWT>
+5.1 Auth / Profile
+POST /auth/webhook
+Description: Clerk webhook — sync new/updated user into PostgreSQL
+Auth: Svix webhook signature verification (no JWT)
+Body: Clerk UserCreated / UserUpdated event payload (JSON)
+Response 200: { "ok": true }
+GET /me
+Description: Return authenticated user + profile
+Response 200: { id, email, full_name, role, profile: { target_roles, experience_level, skills_summary, bio } }
+PATCH /me/profile
+Description: Update user profile fields
+Body: { target_roles?: string[], experience_level?: string, preferred_locations?: string[], bio?: string }
+Response 200: Updated UserProfile object
+5.2 Resume
+POST /resumes/upload
+Description: Upload PDF resume — file stored in S3, parse job enqueued
+Content-Type: multipart/form-data
+Body field: file: PDF binary (max 5 MB)
+Response 202: { resume_id: UUID, status: "pending" }
+GET /resumes
+Description: List all resumes for the authenticated user
+Response 200: Resume[] — [{ id, file_name, ats_score, parse_status, created_at }]
+GET /resumes/{id}
+Description: Full parsed resume detail — poll until parse_status = 'done'
+Response 200: { id, raw_text, parsed_json, ats_score, quality_score, current_version, parse_status }
+POST /resumes/{id}/improve
+Description: AI rewrite of a specific resume section against a target JD
+Body: { section: "experience" | "skills" | "projects", target_jd_id?: UUID }
+Response 200: { original: string, improved: string, version_id: UUID }
+GET /resumes/{id}/versions
+Description: List version history for a resume
+Response 200: ResumeVersion[] — [{ id, version_number, diff_summary, created_at }]
+5.3 Jobs
+POST /jobs/analyze
+Description: Parse a raw job description (text or URL) — async
+Body: { jd_text?: string, url?: string }  (one required)
+Response 202: { job_id: UUID, status: "pending" }
+GET /jobs/{id}
+Response 200: { id, title, company, jd_text, parsed_json: { must_have[], nice_to_have[], years_required } }
+5.4 Matching
+POST /matches/create
+Description: Kick off hybrid match scoring between a resume and job (async)
+Body: { resume_id: UUID, job_id: UUID }
+Response 202: { match_id: UUID, status: "pending" }
+GET /matches/{id}
+Response 200: { match_score: int, ats_score: int, missing_skills: string[], recommendations: [{ skill, resource, priority }] }
+GET /matches/user/{userId}
+Response 200: JobMatch[] — paginated history of all match results for the user
+5.5 AI Copilot
+POST /copilot/chat
+Description: Send message to AI mentor — supports SSE streaming response
+Body: { chat_id?: UUID, message: string, context?: { resume_id?: UUID, job_id?: UUID } }
+Response 200: text/event-stream — data: { delta: string }  ...  data: [DONE]
+POST /copilot/cover-letter
+Body: { resume_id: UUID, job_id: UUID, tone?: "formal" | "friendly" | "confident" }
+Response 200: { cover_letter: string, word_count: number }
+POST /copilot/roadmap
+Body: { resume_id: UUID, target_role: string, timeline_weeks?: number }
+Response 200: { weeks: [{ week: number, topics: string[], resources: string[] }] }
+POST /copilot/questions
+Description: Generate interview questions from resume and JD
+Body: { resume_id: UUID, job_id?: UUID, type: "hr"|"technical"|"coding"|"system_design", count?: number }
+Response 200: { questions: [{ id: UUID, text: string, difficulty: string, category: string }] }
+5.6 Mock Interview
+POST /interviews/start
+Body: { resume_id?: UUID, job_id?: UUID, type: string, mode: "text"|"voice", difficulty: "easy"|"medium"|"hard" }
+Response 201: { interview_id: UUID, first_question: { id: UUID, text: string, sequence: 1 } }
+POST /interviews/{id}/answer
+Body: { question_id: UUID, answer_text: string }
+Response 200: { score: int, feedback: string, next_question: { id, text, sequence } | null, finished: boolean }
+POST /interviews/{id}/finish
+Response 200: { overall_score: int, status: "done" }
+GET /interviews/{id}/report
+Response 200: { overall_score: int, questions: [{ text, answer, score, feedback, dimension_scores }], coaching_tips: string[] }
+5.7 Live Interview Room
+POST /rooms/create
+Auth: Recruiter role required
+Body: { candidate_email?: string, participant_limit?: number }
+Response 201: { room_id: UUID, room_key: string, stream_token: string, join_url: string }
+POST /rooms/{id}/join
+Body: { room_key: string }
+Response 200: { stream_token: string, video_call_id: string, chat_channel_id: string }
+POST /rooms/{id}/execute-code
+Description: Run code via sandboxed Piston executor
+Body: { language: string, code: string, stdin?: string }
+Response 200: { stdout: string, stderr: string, exit_code: number, runtime_ms: number }
+POST /rooms/{id}/lock
+Description: Prevent new participants from joining
+Response 200: { is_locked: true }
+5.8 Application Tracker
+POST /applications
+Body: { job_id: UUID, status?: string, notes?: string }
+Response 201: Application object
+PATCH /applications/{id}
+Body: { status?: string, notes?: string }
+Response 200: Updated Application object
+GET /applications
+Response 200: Application[] — all applications for the user, sorted by updated_at desc
+GET /applications/timeline
+Response 200: Applications grouped by status with date timeline
+5.9 Analytics
+GET /analytics/dashboard
+Response 200: { resumes_uploaded: int, avg_ats_score: float, mock_interviews_done: int, applications_count: int, skill_gap_top5: string[] }
+GET /analytics/skills
+Response 200: { missing_skills: [{ skill: string, frequency: int }], strong_skills: [{ skill, count }] }
+GET /analytics/interviews
+Response 200: { total: int, avg_score: float, by_type: { hr, technical, coding }, trend: [{ week, avg_score }] }
+6. Docker Compose Services
+Service
+Image / Build
+Port
+Role
+frontend
+build: ./frontend
+3000
+Next.js development / production server
+backend
+build: ./backend
+8000
+FastAPI application server
+worker
+build: ./backend (CMD: celery worker)
+-
+Celery async task worker
+beat
+build: ./backend (CMD: celery beat)
+-
+Celery periodic scheduler
+postgres
+postgres:16-alpine
+5432
+Primary relational database
+redis
+redis:7-alpine
+6379
+Task broker + response cache
+piston
+ghcr.io/engineer-man/piston
+2000
+Sandboxed code execution
+nginx
+nginx:alpine
+80 / 443
+Reverse proxy + SSL termination
+7. Key Environment Variables
+Variable
+Service
+Value / Notes
+DATABASE_URL
+Backend
+postgresql+asyncpg://user:pass@postgres:5432/talentiq
+REDIS_URL
+Backend, Celery
+redis://redis:6379/0
+CLERK_SECRET_KEY
+Backend
+sk_live_... (from Clerk dashboard)
+CLERK_WEBHOOK_SECRET
+Backend
+whsec_... (from Clerk webhooks)
+OPENAI_API_KEY
+Backend
+sk-... (GPT-4o + ada-002 embeddings)
+GEMINI_API_KEY
+Backend
+AIza... (Gemini 1.5 Pro fallback)
+STREAM_API_KEY
+Backend + Frontend
+Stream Video/Chat API key
+STREAM_API_SECRET
+Backend
+Stream secret for server-side token minting
+S3_BUCKET / CLOUDINARY_URL
+Backend
+Object storage for resumes, transcripts, recordings
+PISTON_URL
+Backend
+http://piston:2000 (internal Docker network)
+NEXT_PUBLIC_API_URL
+Frontend
+http://localhost:8000/v1 (dev) / https://api.talentiq.dev/v1 (prod)
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+Frontend
+pk_live_... (from Clerk dashboard)
+Talent-IQ Career Copilot  |  Technical Design Document  |  Yashpalsingh Pawara

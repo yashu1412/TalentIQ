@@ -1,0 +1,108 @@
+import sys
+import asyncio
+import warnings
+
+# Suppress Pydantic V1 compatibility warning in Python 3.14+
+warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.")
+
+# Windows async fix for psycopg/sqlalchemy
+if sys.platform == "win32":
+    try:
+        from asyncio import WindowsSelectorEventLoopPolicy
+    except ImportError:
+        pass
+    else:
+        if not isinstance(asyncio.get_event_loop_policy(), WindowsSelectorEventLoopPolicy):
+            asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
+
+import logging
+import os
+import time
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from src.core.db import init_pgvector
+
+logger = logging.getLogger("uvicorn.error")
+from src.core.redis import close_redis
+from src.api.auth_router import router as auth_router
+from src.api.resume_router import router as resume_router
+from src.api.job_router import router as job_router, match_router
+from src.api.ai_router import router as ai_router
+from src.api.interview_router import router as interview_router
+from src.api.live_room_router import router as live_room_router
+from src.api.tracker_router import router as tracker_router
+from src.api.analytics_router import router as analytics_router
+from src.api.group_router import router as group_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: initialise pgvector + tables in the background so that
+    # uvicorn completes startup immediately even when Neon is cold-starting.
+    if os.getenv("SKIP_DB_BOOTSTRAP", "").lower() in ("1", "true", "yes"):
+        logger.warning("SKIP_DB_BOOTSTRAP is set; skipping init_pgvector()")
+    else:
+        async def _init():
+            try:
+                await init_pgvector()
+                logger.info("Database schema initialised successfully.")
+            except Exception:
+                logger.exception(
+                    "Database init failed (non-fatal); API will still serve requests. "
+                    "Fix DATABASE_URL / Postgres, then restart the API."
+                )
+        asyncio.create_task(_init())
+
+    yield
+    # Shutdown
+    await close_redis()
+
+
+
+app = FastAPI(
+    title="TalentIQ Career Copilot API",
+    version="1.0.0",
+    description="AI-powered resume analysis, job matching, mock interviews, and live collaboration.",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=".*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount all routers
+app.include_router(auth_router,         prefix="/v1")
+app.include_router(resume_router,       prefix="/v1")
+app.include_router(job_router,          prefix="/v1")
+app.include_router(match_router,        prefix="/v1")
+app.include_router(ai_router,           prefix="/v1")
+app.include_router(interview_router,    prefix="/v1")
+app.include_router(live_room_router,    prefix="/v1")
+app.include_router(tracker_router,      prefix="/v1")
+app.include_router(analytics_router,    prefix="/v1")
+app.include_router(group_router,        prefix="/v1")
+
+# Robust path for uploads directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+uploads_dir = os.path.join(BASE_DIR, "uploads")
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+
+@app.get("/")
+async def root():
+    return {"service": "TalentIQ Career Copilot API", "version": "1.0.0", "status": "healthy"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
