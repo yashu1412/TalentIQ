@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { interviewApi } from "@/lib/api";
 import { Search, RotateCcw } from "lucide-react";
 
-export default function InterviewReplayPage() {
+function InterviewReplayContent() {
   const { getToken } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -123,5 +123,13 @@ export default function InterviewReplayPage() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function InterviewReplayPage() {
+  return (
+    <Suspense fallback={<DashboardLayout><div className="p-8 text-center text-sm font-mono" style={{ color: "var(--text-muted)" }}>Loading replay...</div></DashboardLayout>}>
+      <InterviewReplayContent />
+    </Suspense>
   );
 }
