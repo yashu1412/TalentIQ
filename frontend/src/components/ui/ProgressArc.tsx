@@ -65,11 +65,11 @@ export default function ProgressArc({
         />
       </svg>
       <div style={{ textAlign: "center", position: "relative" }}>
-        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: size * 0.22, color: "#FFFFFF", lineHeight: 1 }}>
+        <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: size * 0.22, color: "var(--text-primary)", lineHeight: 1 }}>
           {Math.round(current)}
         </div>
         {label && (
-          <div style={{ fontSize: size * 0.13, color: "#71717a", marginTop: 2 }}>{label}</div>
+          <div style={{ fontSize: size * 0.13, color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
         )}
       </div>
     </div>

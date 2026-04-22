@@ -87,7 +87,7 @@ export default function LiveInterviewPage() {
   };
 
   return (
-    <div className="relative min-h-screen" style={{ background: "#0a0a0a" }}>
+    <div className="relative min-h-screen" style={{ background: "var(--bg-primary)" }}>
       {inRoom && <RoomParticles />}
       <DashboardLayout>
         <div className="space-y-5 animate-fade-in">
@@ -96,7 +96,7 @@ export default function LiveInterviewPage() {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <p className="text-xs font-mono" style={{ color: "#F59E0B", letterSpacing: "0.15em" }}>SYSTEM / LIVE ROOM</p>
-              <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>Live Interview Room</h1>
+              <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Live Interview Room</h1>
             </div>
             {createdRoom && (
               <div className="flex items-center gap-3">
@@ -114,8 +114,8 @@ export default function LiveInterviewPage() {
                 <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
                   <Video className="w-6 h-6" style={{ color: "#F59E0B" }} />
                 </div>
-                <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF" }}>Create Room</h3>
-                <p className="text-sm" style={{ color: "#71717a" }}>Start a new live interview session as recruiter</p>
+                <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>Create Room</h3>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>Start a new live interview session as recruiter</p>
                 <button onClick={createRoom} className="glow-btn w-full justify-center" style={{ borderColor: "#F59E0B", color: "#FCD34D" }}>
                   <Plus className="w-4 h-4" /> Create Room
                 </button>
@@ -124,13 +124,13 @@ export default function LiveInterviewPage() {
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: "rgba(55,138,221,0.12)", border: "1px solid rgba(55,138,221,0.3)" }}>
                   <Link2 className="w-6 h-6" style={{ color: "#378ADD" }} />
                 </div>
-                <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF" }}>Join Room</h3>
+                <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>Join Room</h3>
                 <input
                   value={roomKey}
                   onChange={e => setRoomKey(e.target.value.toUpperCase())}
                   placeholder="Enter room key…"
                   className="w-full p-3 rounded-xl outline-none font-mono text-sm"
-                  style={{ background: "rgba(10,10,10,0.8)", border: "1px solid #262626", color: "#FFFFFF" }}
+                  style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
                 />
                 <button onClick={joinRoom} disabled={!roomKey} className="glow-btn w-full justify-center" style={{ opacity: !roomKey ? 0.5 : 1 }}>
                   Join Room
@@ -142,8 +142,8 @@ export default function LiveInterviewPage() {
               <div className="w-16 h-16 rounded-2xl mx-auto mb-6 flex items-center justify-center" style={{ background: "rgba(55,138,221,0.15)", border: "1px solid #378ADD" }}>
                 <Video className="w-7 h-7" style={{ color: "#378ADD" }} />
               </div>
-              <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF", marginBottom: 8 }}>Room Ended</h2>
-              <p style={{ color: "#71717a", marginBottom: 24 }}>The interview session has been closed. Recording (if any) will be available shortly.</p>
+              <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Room Ended</h2>
+              <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>The interview session has been closed. Recording (if any) will be available shortly.</p>
               <button onClick={() => { setCreatedRoom(null); setJoined(false); setRoomEnded(false); }} className="glow-btn glow-btn-primary">
                 Start New Room
               </button>
@@ -154,9 +154,9 @@ export default function LiveInterviewPage() {
               {createdRoom && (
                 <div className="glass-card p-4 flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm" style={{ color: "#A1A1AA" }}>Room Key:</span>
+                    <span className="text-sm" style={{ color: "var(--text-muted)" }}>Room Key:</span>
                     <span className="font-mono font-bold text-lg" style={{ color: "#60A5FA" }}>{createdRoom.room_key}</span>
-                    <button onClick={() => navigator.clipboard.writeText(createdRoom.room_key)} className="text-[#A1A1AA] hover:text-[#60A5FA] transition-colors">
+                    <button onClick={() => navigator.clipboard.writeText(createdRoom.room_key)} className="transition-colors" style={{ color: "var(--text-muted)" }}>
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
@@ -179,7 +179,7 @@ export default function LiveInterviewPage() {
                 <div className="glass-card p-4" style={{ borderColor: "rgba(245,158,11,0.3)" }}>
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-mono" style={{ color: "#F59E0B" }}>INTERVIEWER NOTES</span>
-                    <button onClick={() => setShowNotes(false)} className="text-[#A1A1AA] hover:text-white"><X className="w-4 h-4" /></button>
+                    <button onClick={() => setShowNotes(false)} style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
                   </div>
                   <textarea
                     value={notes}
@@ -187,7 +187,7 @@ export default function LiveInterviewPage() {
                     rows={4}
                     placeholder="Record notes about the candidate's performance…"
                     className="w-full outline-none resize-none text-sm custom-scrollbar"
-                    style={{ background: "transparent", color: "#A1A1AA", fontFamily: "DM Sans, sans-serif" }}
+                    style={{ background: "transparent", color: "var(--text-muted)", fontFamily: "DM Sans, sans-serif" }}
                   />
                 </div>
               )}
@@ -197,19 +197,19 @@ export default function LiveInterviewPage() {
                 {/* Video Panel */}
                 <div className="glass-card p-5 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF" }}>Video</h3>
+                    <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>Video</h3>
                     <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(34,197,94,0.15)", color: "#4ADE80", border: "1px solid #22C55E" }}>
                       2 participants
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {["Recruiter", "Candidate"].map(name => (
-                      <div key={name} className="rounded-xl aspect-video flex items-center justify-center relative overflow-hidden" style={{ background: "#161616" }}>
+                      <div key={name} className="rounded-xl aspect-video flex items-center justify-center relative overflow-hidden" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                         <div className="text-center">
-                          <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: "#262626" }}>
-                            <Video className="w-5 h-5" style={{ color: "#71717a" }} />
+                          <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: "var(--bg-primary)" }}>
+                            <Video className="w-5 h-5" style={{ color: "var(--text-muted)" }} />
                           </div>
-                          <p className="text-xs" style={{ color: "#71717a" }}>{name}</p>
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{name}</p>
                         </div>
                         <div className="absolute bottom-2 left-2">
                           <span className="status-dot-active" style={{ width: 6, height: 6 }} />
@@ -217,16 +217,16 @@ export default function LiveInterviewPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-center" style={{ color: "#262626" }}>Stream Video SDK — connect with real-time token</p>
+                  <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>Stream Video SDK — connect with real-time token</p>
                 </div>
 
                 {/* Code Editor */}
                 <div className="glass-card overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #161616" }}>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
                     <select value={language || "python"} onChange={e => setLanguage(e.target.value)}
                       className="text-xs outline-none"
                       style={{ background: "transparent", color: "#60A5FA", fontFamily: "JetBrains Mono, monospace" }}>
-                      {LANGUAGES.map(l => <option key={l} value={l} style={{ background: "#161616" }}>{l}</option>)}
+                      {LANGUAGES.map(l => <option key={l} value={l} style={{ background: "var(--bg-deep)", color: "var(--text-primary)" }}>{l}</option>)}
                     </select>
                     <button onClick={runCode} disabled={running}
                       className="glow-btn glow-btn-primary text-xs py-1.5 px-3"
@@ -252,26 +252,26 @@ export default function LiveInterviewPage() {
 
               {/* Chat Panel */}
               <div className="glass-card overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid #161616" }}>
+                <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--border-default)" }}>
                   <MessageSquare className="w-4 h-4" style={{ color: "#378ADD" }} />
-                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.1em" }}>CHAT</h3>
+                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em" }}>CHAT</h3>
                 </div>
                 <div className="p-3 space-y-2 custom-scrollbar" style={{ maxHeight: 160, overflowY: "auto" }}>
                   {chatMessages.map((m, i) => (
                     <div key={i} className={`flex gap-2 text-xs ${m.sender === "You" ? "flex-row-reverse" : ""}`}>
-                      <span style={{ color: "#52525b", flexShrink: 0 }}>{m.sender}:</span>
-                      <span style={{ color: "#A1A1AA" }}>{m.text}</span>
+                      <span style={{ color: "var(--text-muted)", flexShrink: 0 }}>{m.sender}:</span>
+                      <span style={{ color: "var(--text-primary)" }}>{m.text}</span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 px-3 py-2" style={{ borderTop: "1px solid #161616" }}>
+                <div className="flex items-center gap-2 px-3 py-2" style={{ borderTop: "1px solid var(--border-default)" }}>
                   <input
                     value={chatInput}
                     onChange={e => setChatInput(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") sendChat(); }}
                     placeholder="Type message…"
                     className="flex-1 outline-none text-sm"
-                    style={{ background: "transparent", color: "#FFFFFF", fontFamily: "DM Sans, sans-serif" }}
+                    style={{ background: "transparent", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}
                   />
                   <button onClick={sendChat} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: "rgba(55,138,221,0.2)", border: "1px solid #378ADD", color: "#60A5FA" }}>
                     Send

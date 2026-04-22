@@ -24,9 +24,9 @@ function GlobeArc({ start, end }: { start: THREE.Vector3; end: THREE.Vector3 }) 
   });
 
   return (
-    <line ref={meshRef as any} geometry={geometry}>
+    <primitive object={new THREE.Line(geometry)} ref={meshRef}>
       <lineDashedMaterial color="#378ADD" dashSize={0.1} gapSize={0.1} opacity={0.6} transparent />
-    </line>
+    </primitive>
   );
 }
 

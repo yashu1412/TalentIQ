@@ -6,6 +6,7 @@ import { useAuth } from "@clerk/nextjs";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Bot, Send, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { copilotApi } from "@/lib/api";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1";
 type Message = { role: "user" | "assistant"; content: string; intent?: string };
@@ -15,6 +16,10 @@ const INTENT_MAP: Record<string, { label: string; color: string }> = {
   cover_letter:    { label: "Cover Letter",    color: "#8B5CF6" },
   interview_prep:  { label: "Interview Prep",  color: "#F59E0B" },
   roadmap:         { label: "Roadmap",         color: "#378ADD" },
+  linkedin_summary:{ label: "LinkedIn",        color: "#0EA5E9" },
+  networking_message:{ label: "Networking",    color: "#14B8A6" },
+  negotiation_script:{ label: "Negotiation",   color: "#F59E0B" },
+  company_prep:    { label: "Company Prep",    color: "#8B5CF6" },
   general:         { label: "Mentor Chat",     color: "#60A5FA" },
 };
 
@@ -24,6 +29,10 @@ const QUICK_PROMPTS = [
   "Create a 12-week learning roadmap for ML Engineer",
   "What are my biggest skill gaps?",
   "How should I answer 'Tell me about yourself'?",
+  "Write a concise LinkedIn summary from my resume",
+  "Draft a referral request DM for a product company",
+  "Create a salary negotiation script for an offer call",
+  "Prepare me for a company-specific frontend interview",
 ];
 
 const STORAGE_KEY = "talentiq_copilot_messages";
@@ -48,6 +57,8 @@ function CopilotInner() {
   });
   const [input, setInput] = useState(contextParam === "cover_letter" ? "Write me a cover letter for my resume" : contextParam === "resume" ? "Improve my resume's experience section" : "");
   const [streaming, setStreaming] = useState(false);
+  const [portfolioInput, setPortfolioInput] = useState("");
+  const [portfolioEvaluation, setPortfolioEvaluation] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Persist messages to localStorage whenever they change
@@ -119,13 +130,26 @@ function CopilotInner() {
     setMessages([{ role: "assistant", content: "Chat cleared. How can I help you?", intent: "general" }]);
   };
 
+  const savePortfolioArtifact = async () => {
+    if (!portfolioInput.trim()) return;
+    const token = await getToken();
+    await copilotApi.ingestPortfolio(portfolioInput, "copilot_manual", token || "");
+    setPortfolioInput("");
+  };
+
+  const runPortfolioEvaluation = async () => {
+    const token = await getToken();
+    const resp = await copilotApi.evaluatePortfolio("Software Engineer", token || "");
+    setPortfolioEvaluation(resp.data?.evaluation || "");
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col animate-fade-in" style={{ height: "calc(100vh - 120px)" }}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
             <p className="text-xs font-mono" style={{ color: "#378ADD", letterSpacing: "0.15em" }}>SYSTEM / AI COPILOT</p>
-            <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>Career Copilot</h1>
+            <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Career Copilot</h1>
           </div>
           <button onClick={clearChat} className="glow-btn text-sm py-2 px-4">
             <RotateCcw className="w-3.5 h-3.5" /> Clear Chat
@@ -135,16 +159,34 @@ function CopilotInner() {
         {/* Chat window */}
         <div className="flex-1 glass-card overflow-hidden flex flex-col min-h-0">
           {/* Header bar */}
-          <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid #161616", flexShrink: 0 }}>
+          <div className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--border-default)", flexShrink: 0 }}>
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(55,138,221,0.15)", border: "1px solid rgba(55,138,221,0.3)" }}>
               <Bot className="w-4 h-4" style={{ color: "#378ADD" }} />
             </div>
             <div>
-              <p style={{ fontWeight: 700, color: "#FFFFFF", fontSize: 14 }}>TalentIQ AI</p>
-              <p className="text-xs" style={{ color: streaming ? "#60A5FA" : "#71717a" }}>
+              <p style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 14 }}>TalentIQ AI</p>
+              <p className="text-xs" style={{ color: streaming ? "#60A5FA" : "var(--text-muted)" }}>
                 {streaming ? "Streaming response…" : "Online · Powered by GPT-4o"}
               </p>
             </div>
+          </div>
+
+          <div className="px-5 py-3 space-y-2" style={{ borderTop: "1px solid var(--border-default)", flexShrink: 0 }}>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Portfolio Evaluator (RAG Context)</p>
+            <div className="flex gap-2">
+              <input
+                value={portfolioInput}
+                onChange={(e) => setPortfolioInput(e.target.value)}
+                placeholder="Paste project summary, portfolio bullet, or GitHub readme excerpt"
+                className="flex-1 rounded-lg px-3 py-2 text-xs"
+                style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+              />
+              <button onClick={savePortfolioArtifact} className="glow-btn text-xs py-2 px-3">Add</button>
+              <button onClick={runPortfolioEvaluation} className="glow-btn text-xs py-2 px-3">Evaluate</button>
+            </div>
+            {portfolioEvaluation && (
+              <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-muted)" }}>{portfolioEvaluation}</p>
+            )}
           </div>
 
           {/* Messages */}
@@ -167,8 +209,8 @@ function CopilotInner() {
                     <div
                       className="px-4 py-3 text-sm leading-relaxed"
                       style={m.role === "user"
-                        ? { background: "rgba(55,138,221,0.18)", border: "1px solid rgba(55,138,221,0.4)", color: "#FFFFFF", borderRadius: "18px 18px 4px 18px" }
-                        : { background: "rgba(22,22,22,0.8)", border: "1px solid #262626", color: "#A1A1AA", borderRadius: "18px 18px 18px 4px", overflowWrap: "anywhere" }
+                        ? { background: "rgba(55,138,221,0.16)", border: "1px solid rgba(55,138,221,0.34)", color: "var(--text-primary)", borderRadius: "18px 18px 4px 18px" }
+                        : { background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-muted)", borderRadius: "18px 18px 18px 4px", overflowWrap: "anywhere" }
                       }
                     >
                       {m.role === "user" ? (
@@ -181,13 +223,13 @@ function CopilotInner() {
                               ul: ({node, ...props}) => <ul className="list-disc ml-4 mb-2 space-y-1" {...props} />,
                               ol: ({node, ...props}) => <ol className="list-decimal ml-4 mb-2 space-y-1" {...props} />,
                               li: ({node, ...props}) => <li className="" {...props} />,
-                              h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2 mt-4 text-white" {...props} />,
-                              h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 mt-3 text-white" {...props} />,
-                              h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-2 text-white" {...props} />,
-                              strong: ({node, ...props}) => <strong className="font-bold text-gray-200" {...props} />,
+                              h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2 mt-4 text-[var(--text-primary)]" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 mt-3 text-[var(--text-primary)]" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-base font-bold mb-2 mt-2 text-[var(--text-primary)]" {...props} />,
+                              strong: ({node, ...props}) => <strong className="font-bold text-[var(--text-primary)]" {...props} />,
                               em: ({node, ...props}) => <em className="italic" {...props} />,
                               a: ({node, ...props}) => <a className="text-[#378ADD] hover:underline" {...props} />,
-                              code: ({node, ...props}) => <code className="bg-[#1e1e1e] px-1.5 py-0.5 rounded text-[13px] font-mono border border-[#333]" {...props} />
+                              code: ({node, ...props}) => <code className="px-1.5 py-0.5 rounded text-[13px] font-mono border border-[var(--border-default)] bg-[var(--bg-primary)]" {...props} />
                             }}
                           >
                             {m.content}
@@ -206,12 +248,12 @@ function CopilotInner() {
           </div>
 
           {/* Quick prompts */}
-          <div className="px-5 py-3" style={{ borderTop: "1px solid #161616", flexShrink: 0 }}>
+          <div className="px-5 py-3" style={{ borderTop: "1px solid var(--border-default)", flexShrink: 0 }}>
             <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
               {QUICK_PROMPTS.map((p, i) => (
                 <button key={i} onClick={() => sendMessage(p)} disabled={streaming}
                   className="text-xs px-3 py-1.5 rounded-full whitespace-nowrap flex-shrink-0 transition-all hover:border-[#378ADD]"
-                  style={{ background: "rgba(10,10,10,0.8)", border: "1px solid #262626", color: "#71717a" }}>
+                  style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-muted)" }}>
                   {p}
                 </button>
               ))}
@@ -219,8 +261,8 @@ function CopilotInner() {
           </div>
 
           {/* Input */}
-          <div className="p-4" style={{ borderTop: "1px solid #161616", flexShrink: 0 }}>
-            <div className="flex items-end gap-3 rounded-xl p-3" style={{ background: "rgba(10,10,10,0.8)", border: "1px solid #262626" }}>
+          <div className="p-4" style={{ borderTop: "1px solid var(--border-default)", flexShrink: 0 }}>
+            <div className="flex items-end gap-3 rounded-xl p-3" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
               <textarea
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -228,7 +270,7 @@ function CopilotInner() {
                 rows={2}
                 placeholder="Ask about your resume, cover letters, roadmaps… (Enter to send, Shift+Enter for new line)"
                 className="flex-1 outline-none resize-none text-sm custom-scrollbar"
-                style={{ background: "transparent", color: "#FFFFFF", fontFamily: "DM Sans, sans-serif" }}
+                style={{ background: "transparent", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}
               />
               <button onClick={() => sendMessage()} disabled={streaming || !input.trim()}
                 className="glow-btn glow-btn-primary p-2.5 rounded-xl flex-shrink-0"

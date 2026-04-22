@@ -10,15 +10,15 @@ import httpx
 
 from src.core.db import get_db
 from src.core.auth import get_current_user, require_candidate
+from src.core.feature_flags import require_feature
 from src.models.resume import Resume, ResumeVersion
 from src.models.user import User
 from src.workers.resume_tasks import parse_resume
-import openai
+from src.core.openrouter_client import get_openrouter_client, OR_DEFAULT_MODEL
 
 router = APIRouter(prefix="/resumes", tags=["resume"])
 
 CLOUDINARY_URL = os.getenv("CLOUDINARY_URL", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
 async def upload_to_cloudinary(file_bytes: bytes, filename: str) -> str:
@@ -36,6 +36,7 @@ async def upload_to_cloudinary(file_bytes: bytes, filename: str) -> str:
 @router.post("/upload", status_code=202)
 async def upload_resume(
     file: UploadFile = File(...),
+    _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(require_candidate),
     db: AsyncSession = Depends(get_db),
 ):
@@ -82,6 +83,7 @@ async def upload_resume(
 
 @router.get("")
 async def list_resumes(
+    _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -105,6 +107,7 @@ async def list_resumes(
 @router.get("/{resume_id}")
 async def get_resume(
     resume_id: str,
+    _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -130,6 +133,7 @@ async def get_resume(
 async def improve_resume(
     resume_id: str,
     payload: dict,
+    _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -146,11 +150,12 @@ async def improve_resume(
     if resume.parsed_json:
         section_text = json.dumps(resume.parsed_json.get(section, ""))
 
-    oai = openai.AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://api.ai.cc/v1")
+    oai = get_openrouter_client()
     prompt = f"Improve this resume {section} section with stronger, quantified bullet points:\n{section_text}"
     resp = await oai.chat.completions.create(
-        model="gpt-4o",
+        model=OR_DEFAULT_MODEL,
         messages=[{"role": "user", "content": prompt}],
+        max_tokens=1000,
     )
     improved = resp.choices[0].message.content
 
@@ -172,6 +177,7 @@ async def improve_resume(
 @router.get("/{resume_id}/versions")
 async def resume_versions(
     resume_id: str,
+    _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

@@ -2,9 +2,9 @@
 import asyncio
 import os
 import uuid
+import logging
 import httpx
 import fitz  # PyMuPDF
-import openai
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
@@ -12,16 +12,11 @@ from sqlalchemy import select
 from src.workers.celery_app import celery_app
 from src.models.resume import Resume
 from src.models.embeddings import DocumentEmbedding
+from src.core.db import engine, AsyncSessionLocal
+from src.core.openrouter_client import get_openrouter_client, OR_DEFAULT_MODEL
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+psycopg_async://postgres:postgres@localhost:5432/talentiq",
-)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-openai.api_key = OPENAI_API_KEY
+logger = logging.getLogger(__name__)
 
-engine = create_async_engine(DATABASE_URL)
-AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
@@ -47,12 +42,16 @@ def chunk_text(text: str, chunk_size: int = 512, overlap: int = 64) -> list[str]
 
 
 async def get_embeddings(texts: list[str]) -> list[list[float]]:
-    client = openai.AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://api.ai.cc/v1")
-    response = await client.embeddings.create(model="text-embedding-ada-002", input=texts)
+    """Generate embeddings via OpenRouter (OpenAI-compatible endpoint)."""
+    client = get_openrouter_client()
+    response = await client.embeddings.create(
+        model="openai/text-embedding-ada-002", input=texts
+    )
     return [d.embedding for d in response.data]
 
 
 async def _parse_resume_async(resume_id: str):
+    logger.info("resume_parse_start resume_id=%s", resume_id)
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Resume).where(Resume.id == resume_id))
         resume = result.scalar_one_or_none()
@@ -75,8 +74,8 @@ async def _parse_resume_async(resume_id: str):
         raw_text = extract_text_from_pdf(file_bytes)
         resume.raw_text = raw_text
 
-        # LLM parse sections via OpenAI
-        oai = openai.AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://api.ai.cc/v1")
+        # LLM parse sections via OpenRouter
+        oai = get_openrouter_client()
         parse_prompt = f"""
 Parse this resume and return a JSON with keys:
 skills (list of strings), experience (list of dicts with company/role/duration/bullets),
@@ -85,12 +84,13 @@ Resume text:
 {raw_text[:8000]}
 """
         chat_resp = await oai.chat.completions.create(
-            model="gpt-4o",
+            model=OR_DEFAULT_MODEL,  # uses Gemini or OpenRouter depending on env
             messages=[
                 {"role": "system", "content": "You are a resume parsing expert. Return only valid JSON."},
                 {"role": "user", "content": parse_prompt},
             ],
             response_format={"type": "json_object"},
+            max_tokens=1500,  # cap to stay within OpenRouter free-tier (4000 tokens)
         )
         import json
         import re
@@ -135,6 +135,7 @@ Resume text:
 
         resume.parse_status = "done"
         await db.commit()
+        logger.info("resume_parse_done resume_id=%s", resume_id)
 
 
 @celery_app.task(name="src.workers.resume_tasks.parse_resume", queue="high", bind=True, max_retries=3)
@@ -143,4 +144,5 @@ def parse_resume(self, resume_id: str):
     try:
         asyncio.run(_parse_resume_async(resume_id))
     except Exception as exc:
+        logger.exception("resume_parse_retry resume_id=%s error=%s", resume_id, exc)
         raise self.retry(exc=exc, countdown=30)

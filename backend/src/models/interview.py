@@ -11,12 +11,14 @@ class Interview(Base):
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     type = Column(String(32))              # hr|technical|coding|system_design
     mode = Column(String(16))             # text | voice | live
+    persona = Column(String(32), default="balanced")
     status = Column(String(16), default="pending")  # pending|active|done
     resume_id = Column(String, ForeignKey("resumes.id"), nullable=True)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=True)
     overall_score = Column(SmallInteger)  # 0-100
     feedback_json = Column(JSON)          # Summary + coaching tips
     transcript_url = Column(Text)         # S3 URL for voice transcripts
+    replay_json = Column(JSON)            # Turn-by-turn replay timeline
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="interviews")

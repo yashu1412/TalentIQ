@@ -7,6 +7,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import dynamic from "next/dynamic";
 import { Search, Briefcase, ArrowRight, Lightbulb, BookmarkPlus, FileText, Trash2 } from "lucide-react";
 import axios from "axios";
+import { matchApi, copilotApi } from "@/lib/api";
 
 const SkillGraph3D = dynamic(() => import("@/components/3d/SkillGraph3D"), { ssr: false });
 
@@ -33,6 +34,8 @@ export default function JobAnalysisPage() {
   });
   const [savedToTracker, setSavedToTracker] = useState(false);
   const [savingToTracker, setSavingToTracker] = useState(false);
+  const [atsSimulation, setAtsSimulation] = useState<any>(null);
+  const [companyPrep, setCompanyPrep] = useState<string>("");
 
   const clearAnalysis = () => {
     try { localStorage.removeItem(JD_KEY); localStorage.removeItem(JD_KEY + "_job"); localStorage.removeItem(JD_TEXT_KEY); } catch {}
@@ -78,6 +81,10 @@ export default function JobAnalysisPage() {
       };
       setMatchData(newMatch);
       try {
+        const atsResp = await matchApi.atsSimulate(resumeId, jobId, token || "");
+        setAtsSimulation(atsResp.data);
+      } catch {}
+      try {
         localStorage.setItem(JD_KEY, JSON.stringify(newMatch));
         localStorage.setItem(JD_KEY + "_job", JSON.stringify(jobDetail.data));
         localStorage.setItem(JD_TEXT_KEY, jdText);
@@ -107,12 +114,19 @@ export default function JobAnalysisPage() {
     router.push("/copilot?context=cover_letter");
   };
 
+  const generateCompanyPrep = async () => {
+    if (!jobData?.company || !jobData?.title) return;
+    const token = await getToken();
+    const resp = await copilotApi.companyPrep(jobData.company, jobData.title, token || "");
+    setCompanyPrep(resp.data?.prep || "");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
           <p className="text-xs font-mono" style={{ color: "#378ADD", letterSpacing: "0.15em" }}>SYSTEM / JOB MATCH</p>
-          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>Job Match Engine</h1>
+          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Job Match Engine</h1>
         </div>
         {matchData && (
           <button onClick={clearAnalysis} className="glow-btn text-sm py-2 px-4" style={{ borderColor: "#F43F5E", color: "#F43F5E" }}>
@@ -122,14 +136,14 @@ export default function JobAnalysisPage() {
 
         {/* JD Input */}
         <div className="glass-card p-5">
-          <h2 className="text-sm font-semibold mb-3" style={{ color: "#A1A1AA" }}>Paste Job Description</h2>
+          <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-muted)" }}>Paste Job Description</h2>
           <textarea
             value={jdText}
             onChange={e => setJdText(e.target.value)}
             rows={6}
             placeholder="Paste a job description here to analyze compatibility with your resume…"
             className="w-full rounded-xl p-4 text-sm resize-none outline-none transition-all custom-scrollbar"
-            style={{ background: "rgba(10,10,10,0.8)", border: "1px solid #262626", color: "#FFFFFF", fontFamily: "DM Sans, sans-serif" }}
+            style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}
           />
           <div className="flex justify-end mt-3">
             <button
@@ -148,9 +162,9 @@ export default function JobAnalysisPage() {
           <>
             {/* 3D Skill Graph */}
             <div className="glass-card overflow-hidden">
-              <div className="p-4 border-b border-[#262626] flex items-center justify-between flex-wrap gap-3">
+              <div className="p-4 border-b border-[var(--border-default)] flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF" }}>
+                  <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>
                     {jobData?.title} {jobData?.company ? `@ ${jobData.company}` : ""}
                   </h2>
                   <div className="flex gap-6 mt-1.5">
@@ -178,6 +192,12 @@ export default function JobAnalysisPage() {
                   <button onClick={generateCoverLetter} className="glow-btn text-sm py-2 px-4">
                     <FileText className="w-4 h-4" /> Cover Letter <ArrowRight className="w-3.5 h-3.5" />
                   </button>
+                  <button onClick={() => router.push("/roadmap")} className="glow-btn text-sm py-2 px-4">
+                    Skill Roadmap
+                  </button>
+                  <button onClick={generateCompanyPrep} className="glow-btn text-sm py-2 px-4">
+                    Company Prep
+                  </button>
                 </div>
               </div>
               <SkillGraph3D matchData={matchData} />
@@ -191,7 +211,7 @@ export default function JobAnalysisPage() {
                   Missing Skills ({matchData.missing.length})
                 </h3>
                 {matchData.missing.length === 0 ? (
-                  <p className="text-sm" style={{ color: "#71717a" }}>No missing skills — perfect match!</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>No missing skills — perfect match!</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {matchData.missing.map((sk: string, i: number) => (
@@ -201,7 +221,7 @@ export default function JobAnalysisPage() {
                 )}
                 {matchData.matched.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-xs mb-2" style={{ color: "#71717a" }}>Matched Skills</p>
+                    <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Matched Skills</p>
                     <div className="flex flex-wrap gap-2">
                       {matchData.matched.map((sk: string, i: number) => (
                         <span key={i} className="skill-badge-matched">{sk}</span>
@@ -217,15 +237,15 @@ export default function JobAnalysisPage() {
                   <Lightbulb className="w-4 h-4" /> Recommendations
                 </h3>
                 {matchData.recommendations.length === 0 ? (
-                  <p className="text-sm" style={{ color: "#71717a" }}>No specific recommendations.</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>No specific recommendations.</p>
                 ) : (
                   <div className="space-y-3">
                     {matchData.recommendations.slice(0, 4).map((rec: any, i: number) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "rgba(10,10,10,0.6)" }}>
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                         <span className="text-xs font-bold mt-0.5 flex-shrink-0" style={{ color: "#F59E0B" }}>{i + 1}.</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium" style={{ color: "#FFFFFF" }}>{rec.skill}</p>
-                          <p className="text-xs mt-0.5" style={{ color: "#71717a" }}>{rec.resource}</p>
+                          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{rec.skill}</p>
+                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{rec.resource}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${rec.priority === "high" ? "skill-badge-missing" : "skill-badge-bonus"}`}>
                           {rec.priority}
@@ -240,6 +260,28 @@ export default function JobAnalysisPage() {
                 </div>
               </div>
             </div>
+            {(atsSimulation || companyPrep) && (
+              <div className="glass-card p-5 space-y-4">
+                {atsSimulation && (
+                  <div>
+                    <h3 className="font-semibold mb-2" style={{ color: "#378ADD", fontFamily: "Syne, sans-serif" }}>ATS Simulator</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(atsSimulation.comparison || []).map((v: any) => (
+                        <span key={v.version} className="skill-badge-bonus">
+                          v{v.version}: {v.ats_score}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {companyPrep && (
+                  <div>
+                    <h3 className="font-semibold mb-2" style={{ color: "#8B5CF6", fontFamily: "Syne, sans-serif" }}>Company-Specific Prep</h3>
+                    <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-muted)", lineHeight: 1.7 }}>{companyPrep}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

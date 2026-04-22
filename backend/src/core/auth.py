@@ -9,6 +9,9 @@ from src.models.user import User
 
 CLERK_WEBHOOK_SECRET = os.getenv("CLERK_WEBHOOK_SECRET", "")
 CLERK_JWT_ISSUER = os.getenv("CLERK_JWT_ISSUER", "")
+CLERK_JWT_PUBLIC_KEY = os.getenv("CLERK_JWT_PUBLIC_KEY", "")
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENV", "development")).lower()
+ALLOW_INSECURE_JWT_DECODE = os.getenv("ALLOW_INSECURE_JWT_DECODE", "").lower() in ("1", "true", "yes")
 
 
 def verify_clerk_webhook(
@@ -33,11 +36,25 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(" ", 1)[1]
     try:
-        payload = jwt.decode(
-            token, 
-            "", 
-            options={"verify_signature": False, "verify_exp": False, "verify_aud": False}
-        )
+        if CLERK_JWT_PUBLIC_KEY:
+            payload = jwt.decode(
+                token,
+                CLERK_JWT_PUBLIC_KEY,
+                algorithms=["RS256"],
+                options={"verify_aud": False},
+                issuer=CLERK_JWT_ISSUER or None,
+            )
+        elif ALLOW_INSECURE_JWT_DECODE or APP_ENV != "production":
+            payload = jwt.decode(
+                token,
+                "",
+                options={"verify_signature": False, "verify_exp": True, "verify_aud": False},
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="JWT verification is not configured. Set CLERK_JWT_PUBLIC_KEY or ALLOW_INSECURE_JWT_DECODE=true for local dev.",
+            )
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 

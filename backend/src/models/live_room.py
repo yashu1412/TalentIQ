@@ -17,6 +17,8 @@ class LiveRoom(Base):
     recording_url = Column(Text)                          # Stream recording URL
     notes_json = Column(JSON)                             # Interviewer structured notes
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    retention_tag = Column(String(32), default="standard")
 
     creator = relationship("User", foreign_keys=[created_by], back_populates="live_rooms_created")
 
@@ -42,6 +44,7 @@ class ChatMessage(Base):
     content = Column(Text, nullable=False)
     token_count = Column(SmallInteger)          # For LLM cost tracking
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
 
     chat = relationship("Chat", back_populates="messages")
 
@@ -52,9 +55,14 @@ class Application(Base):
     id = Column(String, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=False)
+    title = Column(String(255), nullable=True)
+    company = Column(String(255), nullable=True)
     status = Column(String(16), default="saved")  # saved|applied|screening|interview|offer|rejected
     notes = Column(Text)
+    next_step = Column(Text, nullable=True)
+    reminder_at = Column(DateTime, nullable=True)
     applied_at = Column(DateTime)
+    last_activity_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="applications")

@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from src.core.db import get_db
 from src.core.auth import get_current_user, require_recruiter
+from src.core.feature_flags import require_feature
 from src.models.live_room import LiveRoom
 from src.models.user import User
 
@@ -45,6 +46,7 @@ def _mint_stream_token(user_id: str) -> str:
 @router.post("/create", status_code=201)
 async def create_room(
     payload: dict,
+    _: None = Depends(require_feature("live_room_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -77,6 +79,7 @@ async def create_room(
 async def join_room(
     room_id: str,
     payload: dict,
+    _: None = Depends(require_feature("live_room_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -104,6 +107,7 @@ async def join_room(
 async def execute_code(
     room_id: str,
     payload: dict,
+    _: None = Depends(require_feature("live_room_enabled")),
     user: User = Depends(get_current_user),
 ):
     """Execute code via Piston sandboxed executor."""
@@ -175,6 +179,7 @@ async def execute_code(
 @router.post("/{room_id}/lock")
 async def lock_room(
     room_id: str,
+    _: None = Depends(require_feature("live_room_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -190,6 +195,7 @@ async def lock_room(
 @router.post("/{room_id}/end")
 async def end_room(
     room_id: str,
+    _: None = Depends(require_feature("live_room_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

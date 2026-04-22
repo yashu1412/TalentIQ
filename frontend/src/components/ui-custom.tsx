@@ -10,16 +10,27 @@ interface GlassCardProps {
 export function GlassCard({ children, className, hover = true }: GlassCardProps) {
   return (
     <motion.div
-      whileHover={hover ? { translateY: -4, scale: 1.01 } : {}}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      whileHover={hover ? { 
+        translateY: -8, 
+        scale: 1.02,
+        transition: { type: "spring", stiffness: 400, damping: 10 }
+      } : {}}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md transition-all duration-300",
-        hover && "hover:border-white/20 hover:bg-white/[0.08] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]",
+        "group relative overflow-hidden glass-card",
+        hover && "glass-card-hover",
         className
       )}
     >
-      <div className="relative z-10 p-6">{children}</div>
-      {/* Ambient Glow effect */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="relative z-10">{children}</div>
+      
+      {/* Dynamic Border Glow */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-[var(--color-teal-600)]/10 via-transparent to-[var(--color-violet)]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      
+      {/* Animated Shine Effect */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
     </motion.div>
   );
 }
@@ -38,24 +49,32 @@ export function GlowButton({
   ...props 
 }: GlowButtonProps) {
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700",
-    secondary: "bg-purple-600 text-white hover:bg-purple-700",
-    outline: "bg-transparent border border-white/20 text-white hover:bg-white/10"
+    primary: "bg-gradient-to-r from-[var(--color-teal-600)] to-[var(--color-violet)] text-white shadow-[0_0_20px_rgba(55,138,221,0.3)]",
+    secondary: "bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20",
+    outline: "border-2 border-[var(--color-teal-600)]/50 text-[var(--color-teal-300)] hover:bg-[var(--color-teal-600)]/10"
   };
 
   return (
     <motion.button
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ 
+        scale: 1.05, 
+        y: -2,
+        boxShadow: glow ? "0 10px 30px -5px rgba(55,138,221,0.5)" : "none"
+      }}
+      whileTap={{ scale: 0.96 }}
       className={cn(
-        "relative px-6 py-3 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2",
+        "relative px-6 py-3 rounded-xl font-bold transition-all duration-300 overflow-hidden group",
         variants[variant],
-        glow && variant === "primary" && "shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_30px_rgba(37,99,235,0.5)]",
-        glow && variant === "secondary" && "shadow-[0_0_20px_rgba(147,51,234,0.3)] hover:shadow-[0_0_30px_rgba(147,51,234,0.5)]",
         className
       )}
       {...props}
     >
-      {children}
+      <span className="relative z-10 flex items-center justify-center gap-2">
+        {children}
+      </span>
+      
+      {/* Shimmer Effect */}
+      <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-[250%] transition-transform duration-700 ease-in-out" />
     </motion.button>
   );
 }

@@ -2,42 +2,48 @@
 import uuid
 import os
 import json
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import openai
-
 from src.core.db import get_db
-from src.core.auth import get_current_user, require_recruiter
+from src.core.auth import get_current_user
+from src.core.openrouter_client import get_openrouter_client, OR_DEFAULT_MODEL
 from src.models.job import Job, JobMatch
-from src.models.resume import Resume
+from src.models.resume import Resume, ResumeVersion
 from src.models.user import User
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 
 async def _parse_jd_with_llm(jd_text: str) -> dict:
-    oai = openai.AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://api.ai.cc/v1")
+    oai = get_openrouter_client()
     prompt = f"""Parse this job description and return JSON with:
 title (string), company (string), must_have (list of skills), nice_to_have (list of skills),
 years_required (int), tools (list), location (string).
 JD: {jd_text[:6000]}"""
     resp = await oai.chat.completions.create(
-        model="gpt-4o",
+        model=OR_DEFAULT_MODEL,
         messages=[
-            {"role": "system", "content": "Return only valid JSON."},
+            {"role": "system", "content": "Return only valid JSON. Do not include markdown formatting."},
             {"role": "user", "content": prompt},
         ],
-        response_format={"type": "json_object"},
+        max_tokens=1000,
     )
-    return json.loads(resp.choices[0].message.content)
+    content = resp.choices[0].message.content
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+    if m:
+        content = m.group(1)
+    obj = re.search(r"\{.*\}", content, re.DOTALL)
+    if obj:
+        content = obj.group(0)
+    return json.loads(content)
 
 
 @router.post("/analyze", status_code=202)
 async def analyze_job(
     payload: dict,
-    user: User = Depends(require_recruiter),
+    user: User = Depends(get_current_user),  # any authenticated user can analyze jobs
     db: AsyncSession = Depends(get_db),
 ):
     jd_text = payload.get("jd_text", "")
@@ -157,6 +163,11 @@ async def create_match(
         {"skill": s, "resource": f"Learn {s} on Coursera/Udemy", "priority": "high"}
         for s in missing_skills[:5]
     ]
+    company_prep = [
+        f"Review {job.company or 'company'} engineering values",
+        f"Prepare 2 STAR stories aligned with {job.title or 'the role'}",
+        "Rehearse role-specific architecture trade-off discussion",
+    ]
 
     match = JobMatch(
         id=str(uuid.uuid4()),
@@ -171,7 +182,7 @@ async def create_match(
     db.add(match)
     await db.commit()
 
-    return {"match_id": match.id, "status": "done"}
+    return {"match_id": match.id, "status": "done", "company_prep": company_prep}
 
 
 @match_router.get("/{match_id}")
@@ -216,3 +227,51 @@ async def user_matches(
         }
         for m in matches
     ]
+
+
+@match_router.post("/ats-simulate")
+async def ats_simulate(
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    resume_id = payload.get("resume_id")
+    job_id = payload.get("job_id")
+    compare_latest_versions = bool(payload.get("compare_latest_versions", True))
+    if not resume_id or not job_id:
+        raise HTTPException(status_code=400, detail="resume_id and job_id required")
+
+    r_result = await db.execute(select(Resume).where(Resume.id == resume_id, Resume.user_id == user.id))
+    resume = r_result.scalar_one_or_none()
+    j_result = await db.execute(select(Job).where(Job.id == job_id))
+    job = j_result.scalar_one_or_none()
+    if not resume or not job:
+        raise HTTPException(status_code=404, detail="Resume or Job not found")
+
+    job_skills = set(s.lower() for s in ((job.parsed_json or {}).get("must_have", []) + (job.parsed_json or {}).get("nice_to_have", [])))
+    versions = [{"version": resume.current_version or 1, "skills": (resume.parsed_json or {}).get("skills", [])}]
+    if compare_latest_versions:
+        v_result = await db.execute(
+            select(ResumeVersion)
+            .where(ResumeVersion.resume_id == resume.id)
+            .order_by(ResumeVersion.version_number.desc())
+            .limit(2)
+        )
+        for v in v_result.scalars().all():
+            versions.append({"version": v.version_number, "skills": (v.content_json or {}).get("skills", [])})
+
+    seen_versions = {}
+    comparison = []
+    for version in versions:
+        version_number = version["version"]
+        if version_number in seen_versions:
+            continue
+        seen_versions[version_number] = True
+        skill_set = set(s.lower() for s in version["skills"])
+        overlap = len(skill_set.intersection(job_skills))
+        score = int(min(100, (overlap / max(1, len(job_skills))) * 100))
+        comparison.append({"version": version_number, "ats_score": score, "matched_keywords": overlap})
+
+    comparison.sort(key=lambda x: x["version"])
+    best = max(comparison, key=lambda x: x["ats_score"]) if comparison else None
+    return {"job_id": job.id, "resume_id": resume.id, "comparison": comparison, "best_version": best}

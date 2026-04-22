@@ -11,6 +11,7 @@ import {
 import { TrendingUp, Zap, FileText, Briefcase, AlertTriangle, BarChart2 } from "lucide-react";
 import ProgressArc from "@/components/ui/ProgressArc";
 import axios from "axios";
+import Link from "next/link";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1";
 
@@ -60,7 +61,7 @@ export default function AnalyticsPage() {
       <div className="space-y-6 animate-fade-in">
         <div>
           <p className="text-xs font-mono" style={{ color: "#60A5FA", letterSpacing: "0.15em" }}>SYSTEM / ANALYTICS</p>
-          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>Career Analytics</h1>
+          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Career Analytics</h1>
         </div>
 
         {/* KPIs */}
@@ -74,8 +75,8 @@ export default function AnalyticsPage() {
             <div key={i} className="stat-card flex items-start gap-4">
               <div className="p-2.5 rounded-xl flex-shrink-0" style={{ background: `${s.color}18`, color: s.color }}>{s.icon}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs" style={{ color: "#71717a" }}>{s.label}</p>
-                <p style={{ fontFamily: "Syne, sans-serif", fontSize: 26, fontWeight: 800, color: "#FFFFFF", lineHeight: 1.2 }}>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</p>
+                <p style={{ fontFamily: "Syne, sans-serif", fontSize: 26, fontWeight: 800, color: "var(--text-primary)", lineHeight: 1.2 }}>
                   {typeof s.value === "number" && s.arcVal === null ? s.value : s.arcVal != null ? `${s.value}%` : s.value}
                 </p>
               </div>
@@ -88,7 +89,7 @@ export default function AnalyticsPage() {
         <div className="glass-card p-5">
           <div className="flex items-center gap-2 mb-5">
             <TrendingUp className="w-4 h-4" style={{ color: "#378ADD" }} />
-            <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.1em" }}>
+            <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
               ATS SCORE TREND
             </h2>
           </div>
@@ -101,10 +102,10 @@ export default function AnalyticsPage() {
                     <stop offset="95%" stopColor="#378ADD" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#161616" vertical={false} />
-                <XAxis dataKey="week" stroke="#262626" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: "#71717a" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+                <XAxis dataKey="week" stroke="var(--border-mid)" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: "var(--text-muted)" }} />
                 <YAxis domain={[40, 100]} hide />
-                <Tooltip contentStyle={{ background: "#161616", border: "1px solid #262626", borderRadius: 8, fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", borderRadius: 8, fontSize: 12, color: "var(--text-primary)" }} />
                 <Area type="monotone" dataKey="ats" name="ATS Score" stroke="#378ADD" fill="url(#atsGrad)" strokeWidth={2.5} dot={{ fill: "#378ADD", r: 3 }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -116,7 +117,7 @@ export default function AnalyticsPage() {
           <div className="glass-card p-5">
             <div className="flex items-center gap-2 mb-5">
               <Zap className="w-4 h-4" style={{ color: "#8B5CF6" }} />
-              <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.1em" }}>
+              <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
                 INTERVIEW SCORE HISTORY
               </h2>
             </div>
@@ -129,10 +130,10 @@ export default function AnalyticsPage() {
                       <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#161616" vertical={false} />
-                  <XAxis dataKey="date" stroke="#262626" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: "#71717a" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" vertical={false} />
+                  <XAxis dataKey="date" stroke="var(--border-mid)" axisLine={false} tickLine={false} fontSize={11} tick={{ fill: "var(--text-muted)" }} />
                   <YAxis domain={[0, 100]} hide />
-                  <Tooltip contentStyle={{ background: "#161616", border: "1px solid #262626", borderRadius: 8, fontSize: 12 }} />
+                  <Tooltip contentStyle={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", borderRadius: 8, fontSize: 12, color: "var(--text-primary)" }} />
                   <Area type="monotone" dataKey="score" name="Score" stroke="#8B5CF6" fill="url(#ivGrad)" strokeWidth={2.5} dot={{ fill: "#8B5CF6", r: 3 }} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -144,17 +145,17 @@ export default function AnalyticsPage() {
             <div className="glass-card p-5">
               <div className="flex items-center gap-2 mb-5">
                 <Zap className="w-4 h-4" style={{ color: "#8B5CF6" }} />
-                <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.1em" }}>
+                <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
                   INTERVIEW BREAKDOWN
                 </h2>
               </div>
               <div style={{ height: 180 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData}>
-                    <PolarGrid stroke="#262626" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: "#71717a", fontSize: 11 }} />
+                    <PolarGrid stroke="var(--border-default)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
                     <Radar name="Count" dataKey="score" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.3} />
-                    <Tooltip contentStyle={{ background: "#161616", border: "1px solid #262626", borderRadius: 8 }} />
+                    <Tooltip contentStyle={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", borderRadius: 8, color: "var(--text-primary)" }} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -165,7 +166,7 @@ export default function AnalyticsPage() {
               <div className="glass-card p-5">
                 <div className="flex items-center gap-2 mb-5">
                   <AlertTriangle className="w-4 h-4" style={{ color: "#F43F5E" }} />
-                  <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.1em" }}>
+                  <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.1em" }}>
                     TOP SKILL GAPS
                   </h2>
                 </div>
@@ -173,8 +174,8 @@ export default function AnalyticsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={skills.missing_skills.slice(0, 6)} layout="vertical">
                       <XAxis type="number" hide />
-                      <YAxis dataKey="skill" type="category" axisLine={false} tickLine={false} width={90} fontSize={11} tick={{ fill: "#71717a" }} />
-                      <Tooltip contentStyle={{ background: "#161616", border: "1px solid #262626", borderRadius: 8 }} />
+                      <YAxis dataKey="skill" type="category" axisLine={false} tickLine={false} width={90} fontSize={11} tick={{ fill: "var(--text-muted)" }} />
+                      <Tooltip contentStyle={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", borderRadius: 8, color: "var(--text-primary)" }} />
                       <Bar dataKey="frequency" fill="#F43F5E" radius={[0, 4, 4, 0]} barSize={12} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -187,20 +188,25 @@ export default function AnalyticsPage() {
         {/* Skill gap tags */}
         {data?.skill_gap_top5?.length > 0 && (
           <div className="glass-card p-5">
-            <h2 className="text-sm font-semibold mb-4" style={{ color: "#A1A1AA" }}>Top Skills to Acquire</h2>
+            <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--text-muted)" }}>Top Skills to Acquire</h2>
             <div className="flex flex-wrap gap-3">
               {data.skill_gap_top5.map((sk: string, i: number) => (
                 <span key={i} className="skill-badge-missing px-4 py-2 text-sm">{sk}</span>
               ))}
+            </div>
+            <div className="mt-4">
+              <Link href="/roadmap" className="glow-btn text-xs py-2 px-4 inline-flex">
+                Generate Skill-Gap Roadmap
+              </Link>
             </div>
           </div>
         )}
 
         {!data && (
           <div className="glass-card p-12 text-center">
-            <BarChart2 className="w-12 h-12 mx-auto mb-4" style={{ color: "#262626" }} />
-            <p style={{ color: "#52525b" }}>Analytics will appear as you use the platform</p>
-            <p className="text-sm mt-2" style={{ color: "#262626" }}>Upload a resume and complete an interview to see insights.</p>
+            <BarChart2 className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--text-muted)" }} />
+            <p style={{ color: "var(--text-muted)" }}>Analytics will appear as you use the platform</p>
+            <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>Upload a resume and complete an interview to see insights.</p>
           </div>
         )}
       </div>

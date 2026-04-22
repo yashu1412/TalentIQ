@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Syne, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/ThemeProvider";
 
 const syne = Syne({
   variable: "--font-display",
@@ -35,9 +36,12 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${syne.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="font-sans bg-[#0a0a0a] text-slate-100 min-h-full flex flex-col">
-        <ClerkProvider>{children}</ClerkProvider>
+      <body className="font-sans min-h-full flex flex-col">
+        <ThemeProvider>
+          <ClerkProvider>{children}</ClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

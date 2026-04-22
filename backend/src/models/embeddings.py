@@ -18,3 +18,4 @@ class DocumentEmbedding(Base):
     embedding = Column(Vector(1536), nullable=False)  # OpenAI ada-002 dimensions
     metadata_json = Column(JSON)                    # { section, source, created_at }
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)

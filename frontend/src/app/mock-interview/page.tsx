@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import DashboardLayout from "@/components/DashboardLayout";
 import dynamic from "next/dynamic";
@@ -14,13 +15,54 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1";
 type Stage = "setup" | "interview" | "report";
 type AvatarState = "idle" | "thinking" | "speaking";
 
-const QUESTION_TIME_LIMIT = 120; // seconds
+const QUESTION_TIME_LIMIT = 120;
+
+const DEFAULT_ROLES = [
+  "Software Engineer",
+  "Data Scientist",
+  "Frontend Developer",
+  "Backend Developer",
+  "DevOps Engineer",
+  "Machine Learning Engineer",
+  "Product Manager",
+  "UX Designer",
+  "Cybersecurity Analyst",
+  "Cloud Architect",
+];
+
+const DEFAULT_ROUND_TYPES_BY_ROLE: Record<string, string[]> = {
+  "Software Engineer":        ["Coding & DS/Algo", "System Design", "Behavioral", "HR"],
+  "Data Scientist":           ["Statistics & ML", "Coding & Data", "Case Study", "Behavioral"],
+  "Frontend Developer":       ["JavaScript & UI", "CSS & Design", "React & Frameworks", "Behavioral"],
+  "Backend Developer":        ["Coding & APIs", "System Design", "Database", "Behavioral"],
+  "DevOps Engineer":          ["Infrastructure & Cloud", "CI/CD & Automation", "Security & Monitoring", "Behavioral"],
+  "Machine Learning Engineer":["ML Theory & Math", "Coding & Modelling", "MLOps & Systems", "Behavioral"],
+  "Product Manager":          ["Product Sense", "Analytical", "Execution", "Behavioral"],
+  "UX Designer":              ["Portfolio & Process", "Design Challenge", "Research & Strategy", "Behavioral"],
+  "Cybersecurity Analyst":    ["Technical Security", "Threat Analysis", "Incident Response", "Behavioral"],
+  "Cloud Architect":          ["Cloud Fundamentals", "Architecture Design", "Security & Cost", "Behavioral"],
+};
+
+const PERSONAS = [
+  { key: "balanced",             label: "Balanced",       icon: "⚖️" },
+  { key: "strict",               label: "Strict",         icon: "🎯" },
+  { key: "friendly",             label: "Friendly",       icon: "😊" },
+  { key: "behavioral-heavy",     label: "Behavioral",     icon: "🤝" },
+  { key: "system-design-heavy",  label: "System Design",  icon: "🏗️" },
+];
 
 export default function MockInterviewPage() {
+  const router = useRouter();
   const { getToken } = useAuth();
+
   const [stage, setStage] = useState<Stage>("setup");
-  const [interviewType, setInterviewType] = useState("technical");
-  const [difficulty, setDifficulty] = useState("medium");
+  const [role, setRole] = useState("Software Engineer");
+  const [roundType, setRoundType] = useState("Coding & DS/Algo");
+  const [persona, setPersona] = useState("balanced");
+
+  const [roles, setRoles] = useState<string[]>(DEFAULT_ROLES);
+  const [roundTypesByRole, setRoundTypesByRole] = useState<Record<string, string[]>>(DEFAULT_ROUND_TYPES_BY_ROLE);
+
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const [currentQ, setCurrentQ] = useState<any>(null);
@@ -31,9 +73,37 @@ export default function MockInterviewPage() {
   const [score, setScore] = useState<number | null>(null);
   const [report, setReport] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
+  const [starting, setStarting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Timer
+  // Available round types for selected role
+  const availableRounds = roundTypesByRole[role] ?? ["Behavioral", "Technical", "HR"];
+
+  // Reset round type when role changes
+  useEffect(() => {
+    setRoundType(availableRounds[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
+
+  // Fetch options from backend
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const token = await getToken();
+        const resp = await axios.get(`${API}/interviews/options`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (resp.data?.roles?.length) setRoles(resp.data.roles);
+        if (resp.data?.round_types_by_role) setRoundTypesByRole(resp.data.round_types_by_role);
+      } catch {
+        // use defaults silently
+      }
+    };
+    fetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Timer per question
   useEffect(() => {
     if (stage !== "interview") return;
     setTimeLeft(QUESTION_TIME_LIMIT);
@@ -46,20 +116,30 @@ export default function MockInterviewPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [currentQ, stage]);
 
-  const fmtTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const fmtTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const startInterview = async () => {
+    setStarting(true);
     setAvatarState("thinking");
     try {
       const token = await getToken();
-      const resp = await axios.post(`${API}/interviews/start`, { type: interviewType, mode: "text", difficulty }, { headers: { Authorization: `Bearer ${token}` } });
+      const resp = await axios.post(
+        `${API}/interviews/start`,
+        { role, round_type: roundType, type: "technical", mode: "text", difficulty: "medium", persona },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setInterviewId(resp.data.interview_id);
       setCurrentQ(resp.data.first_question);
       setTotalQ(resp.data.total_questions ?? 8);
       setQIndex(1);
       setStage("interview");
       setAvatarState("speaking");
-    } catch { setAvatarState("idle"); }
+    } catch {
+      setAvatarState("idle");
+    } finally {
+      setStarting(false);
+    }
   };
 
   const submitAnswer = async () => {
@@ -69,14 +149,15 @@ export default function MockInterviewPage() {
     try {
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const resp = await axios.post(`${API}/interviews/${interviewId}/answer`, {
-        question_id: currentQ.id,
-        answer_text: answer,
-      }, { headers });
+      const resp = await axios.post(
+        `${API}/interviews/${interviewId}/answer`,
+        { question_id: currentQ.id, answer_text: answer },
+        { headers }
+      );
       setFeedback(resp.data.feedback);
       setScore(resp.data.score);
       if (resp.data.finished || !resp.data.next_question) {
-        const finish = await axios.post(`${API}/interviews/${interviewId}/finish`, {}, { headers });
+        await axios.post(`${API}/interviews/${interviewId}/finish`, {}, { headers });
         const reportResp = await axios.get(`${API}/interviews/${interviewId}/report`, { headers });
         setReport(reportResp.data);
         setStage("report");
@@ -112,67 +193,140 @@ export default function MockInterviewPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p className="text-xs font-mono" style={{ color: "#8B5CF6", letterSpacing: "0.15em" }}>SYSTEM / MOCK INTERVIEW</p>
-            <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "#FFFFFF" }}>AI Interview Engine</h1>
+            <p className="text-xs font-mono" style={{ color: "#8B5CF6", letterSpacing: "0.15em" }}>
+              SYSTEM / MOCK INTERVIEW
+            </p>
+            <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>
+              AI Interview Engine
+            </h1>
           </div>
           {stage === "interview" && (
-            <div className="flex items-center gap-3 px-4 py-2 rounded-xl" style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
+            <div className="flex items-center gap-3 px-4 py-2 rounded-xl"
+              style={{ background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)" }}>
               <span className="text-xs font-mono" style={{ color: "#C4B5FD" }}>Q {qIndex} of {totalQ}</span>
-              <div style={{ width: 1, height: 14, background: "#262626" }} />
-              <Timer className="w-3.5 h-3.5" style={{ color: timeLeft <= 30 ? "#F43F5E" : "#71717a" }} />
-              <span className="font-mono text-sm font-bold" style={{ color: timeLeft <= 30 ? "#F43F5E" : "#FFFFFF", minWidth: 40 }}>
+              <div style={{ width: 1, height: 14, background: "var(--border-default)" }} />
+              <Timer className="w-3.5 h-3.5" style={{ color: timeLeft <= 30 ? "#F43F5E" : "var(--text-muted)" }} />
+              <span className="font-mono text-sm font-bold"
+                style={{ color: timeLeft <= 30 ? "#F43F5E" : "var(--text-primary)", minWidth: 40 }}>
                 {fmtTime(timeLeft)}
               </span>
             </div>
           )}
         </div>
 
-        {/* Setup Stage */}
+        {/* ── Setup Stage ── */}
         {stage === "setup" && (
           <div className="grid lg:grid-cols-2 gap-6 items-start">
             <div className="glass-card p-6 space-y-5">
-              <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF" }}>Configure Interview</h2>
-              <div>
-                <label className="text-xs mb-2 block" style={{ color: "#A1A1AA" }}>Interview Type</label>
+              <h2 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)" }}>
+                Configure Interview
+              </h2>
+
+              {/* Role Dropdown */}
+              <div className="space-y-2">
+                <label htmlFor="role-select" className="text-xs font-semibold uppercase tracking-widest block"
+                  style={{ color: "var(--text-muted)" }}>
+                  Target Role
+                </label>
+                <select
+                  id="role-select"
+                  value={role}
+                  onChange={e => setRole(e.target.value)}
+                  className="w-full p-3 rounded-xl text-sm appearance-none cursor-pointer"
+                  style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                >
+                  {roles.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Round Type */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-widest block"
+                  style={{ color: "var(--text-muted)" }}>
+                  Interview Round
+                </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {["hr", "technical", "coding", "system_design"].map(t => (
-                    <button key={t} onClick={() => setInterviewType(t)}
-                      className="p-3 rounded-xl text-sm capitalize text-left transition-all"
+                  {availableRounds.map(rt => (
+                    <button
+                      key={rt}
+                      onClick={() => setRoundType(rt)}
+                      className="p-2.5 rounded-xl text-xs font-medium text-left transition-all duration-200"
                       style={{
-                        background: interviewType === t ? "rgba(139,92,246,0.2)" : "rgba(10,10,10,0.6)",
-                        border: `1px solid ${interviewType === t ? "#8B5CF6" : "#262626"}`,
-                        color: interviewType === t ? "#C4B5FD" : "#71717a",
+                        background: roundType === rt ? "rgba(139,92,246,0.18)" : "var(--bg-deep)",
+                        border: `1.5px solid ${roundType === rt ? "#8B5CF6" : "var(--border-default)"}`,
+                        color: roundType === rt ? "#C4B5FD" : "var(--text-muted)",
+                        transform: roundType === rt ? "scale(1.02)" : "scale(1)",
                       }}
-                    >{t.replace("_", " ")}</button>
+                    >
+                      {rt}
+                    </button>
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="text-xs mb-2 block" style={{ color: "#A1A1AA" }}>Difficulty</label>
-                <div className="flex gap-2">
-                  {["easy", "medium", "hard"].map(d => (
-                    <button key={d} onClick={() => setDifficulty(d)}
-                      className="flex-1 p-2.5 rounded-xl text-sm capitalize transition-all"
+
+              {/* Recruiter Persona */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-widest block"
+                  style={{ color: "var(--text-muted)" }}>
+                  Recruiter Persona
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PERSONAS.map(p => (
+                    <button
+                      key={p.key}
+                      onClick={() => setPersona(p.key)}
+                      className="p-2.5 rounded-xl text-xs text-center transition-all duration-200"
                       style={{
-                        background: difficulty === d ? "rgba(55,138,221,0.2)" : "rgba(10,10,10,0.6)",
-                        border: `1px solid ${difficulty === d ? "#378ADD" : "#262626"}`,
-                        color: difficulty === d ? "#60A5FA" : "#71717a",
+                        background: persona === p.key ? "rgba(55,138,221,0.18)" : "var(--bg-deep)",
+                        border: `1.5px solid ${persona === p.key ? "#378ADD" : "var(--border-default)"}`,
+                        color: persona === p.key ? "#60A5FA" : "var(--text-muted)",
+                        transform: persona === p.key ? "scale(1.03)" : "scale(1)",
                       }}
-                    >{d}</button>
+                    >
+                      <span className="block text-sm mb-0.5">{p.icon}</span>
+                      {p.label}
+                    </button>
                   ))}
                 </div>
               </div>
-              <button onClick={startInterview} className="glow-btn glow-btn-primary w-full justify-center">
-                <Zap className="w-4 h-4" /> Start Interview
+
+              {/* Summary pill */}
+              <div className="rounded-xl px-4 py-3 text-xs"
+                style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", color: "var(--text-muted)" }}>
+                📋 <strong style={{ color: "var(--text-primary)" }}>{role}</strong>
+                {" · "}{roundType}
+                {" · "}{PERSONAS.find(p => p.key === persona)?.label} interviewer
+              </div>
+
+              <button
+                id="start-interview-btn"
+                onClick={startInterview}
+                disabled={starting}
+                className="glow-btn glow-btn-primary w-full justify-center"
+              >
+                {starting ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Starting…
+                  </span>
+                ) : (
+                  <><Zap className="w-4 h-4" /> Start Interview</>
+                )}
               </button>
             </div>
             <InterviewAvatar3D state="idle" />
           </div>
         )}
 
-        {/* Interview Stage */}
+        {/* ── Interview Stage ── */}
         {stage === "interview" && currentQ && (
           <div className="grid lg:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -182,28 +336,31 @@ export default function MockInterviewPage() {
               {/* Question */}
               <div className="glass-card p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: "rgba(139,92,246,0.2)", color: "#C4B5FD" }}>
+                  <span className="text-xs font-mono px-2 py-0.5 rounded"
+                    style={{ background: "rgba(139,92,246,0.2)", color: "#C4B5FD" }}>
                     Q{currentQ.sequence ?? qIndex}
                   </span>
-                  {currentQ.difficulty && (
-                    <span className="text-xs px-2 py-0.5 rounded capitalize" style={{ background: "rgba(55,138,221,0.15)", color: "#60A5FA" }}>
-                      {currentQ.difficulty}
-                    </span>
-                  )}
+                  <span className="text-xs px-2 py-0.5 rounded"
+                    style={{ background: "rgba(55,138,221,0.15)", color: "#60A5FA" }}>
+                    {roundType}
+                  </span>
                 </div>
-                <p style={{ color: "#FFFFFF", lineHeight: 1.75, fontSize: 16 }}>{currentQ.text}</p>
+                <p style={{ color: "var(--text-primary)", lineHeight: 1.75, fontSize: 16 }}>
+                  {currentQ.text}
+                </p>
               </div>
 
               {/* Feedback */}
               {feedback && (
-                <div className="glass-card p-4 border-l-2" style={{ borderColor: score && score >= 70 ? "#378ADD" : "#F59E0B" }}>
+                <div className="glass-card p-4 border-l-2"
+                  style={{ borderColor: score && score >= 70 ? "#378ADD" : "#F59E0B" }}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono" style={{ color: "#A1A1AA" }}>FEEDBACK</span>
+                    <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>FEEDBACK</span>
                     <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: score && score >= 70 ? "#60A5FA" : "#FCD34D" }}>
                       {score}/100
                     </span>
                   </div>
-                  <p className="text-sm" style={{ color: "#A1A1AA" }}>{feedback}</p>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>{feedback}</p>
                 </div>
               )}
 
@@ -215,15 +372,18 @@ export default function MockInterviewPage() {
                   rows={5}
                   placeholder="Type your answer here…"
                   className="w-full outline-none resize-none text-sm custom-scrollbar"
-                  style={{ background: "transparent", color: "#FFFFFF", fontFamily: "DM Sans, sans-serif" }}
+                  style={{ background: "transparent", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}
                 />
                 <div className="flex gap-3 mt-3">
                   <button className="glow-btn text-sm" style={{ opacity: 0.5 }}>
                     <Mic className="w-4 h-4" /> Voice
                   </button>
-                  <button onClick={submitAnswer} disabled={!answer.trim()}
+                  <button
+                    onClick={submitAnswer}
+                    disabled={!answer.trim()}
                     className="glow-btn glow-btn-primary text-sm flex-1 justify-center"
-                    style={{ opacity: !answer.trim() ? 0.5 : 1 }}>
+                    style={{ opacity: !answer.trim() ? 0.5 : 1 }}
+                  >
                     Submit <Send className="w-4 h-4" />
                   </button>
                   <button onClick={skipQuestion} className="glow-btn text-sm" style={{ opacity: 0.6 }}>
@@ -235,21 +395,29 @@ export default function MockInterviewPage() {
           </div>
         )}
 
-        {/* Report Stage */}
+        {/* ── Report Stage ── */}
         {stage === "report" && report && (
           <div className="space-y-6">
             <div className="glass-card p-6">
               <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
-                <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: "#FFFFFF" }}>
-                  Interview Complete — {report.overall_score}/100
-                </h2>
+                <div>
+                  <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>
+                    Interview Complete — {report.overall_score}/100
+                  </h2>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    {role} · {roundType} · {PERSONAS.find(p => p.key === persona)?.label}
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => window.print()} className="glow-btn text-sm">
                     <Download className="w-4 h-4" /> Download PDF
                   </button>
-                  <button onClick={resetInterview} className="glow-btn text-sm">
-                    New Interview
-                  </button>
+                  {interviewId && (
+                    <button onClick={() => router.push(`/interview-replay?id=${interviewId}`)} className="glow-btn text-sm">
+                      Open Replay
+                    </button>
+                  )}
+                  <button onClick={resetInterview} className="glow-btn text-sm">New Interview</button>
                 </div>
               </div>
 
@@ -261,22 +429,25 @@ export default function MockInterviewPage() {
                     clarity:      Math.min(10, (report.overall_score / 100) * 10 + 0.5),
                     completeness: Math.min(10, (report.overall_score / 100) * 10 - 0.5),
                   }} />
-                  {/* Dimension bars */}
+                  {/* Dimension bars from last answer */}
                   <div className="w-full mt-4 space-y-2">
                     {[
-                      { label: "Relevance",    color: "#378ADD", val: 8.2 },
-                      { label: "Accuracy",     color: "#378ADD", val: 7.4 },
-                      { label: "Clarity",      color: "#8B5CF6", val: 9.0 },
-                      { label: "Completeness", color: "#F59E0B", val: 6.9 },
-                    ].map(d => (
-                      <div key={d.label} className="flex items-center gap-3">
-                        <span className="text-xs w-24 flex-shrink-0" style={{ color: "#71717a" }}>{d.label}</span>
-                        <div className="flex-1 h-1.5 rounded-full" style={{ background: "#161616" }}>
-                          <div className="h-full rounded-full" style={{ width: `${d.val * 10}%`, background: d.color }} />
+                      { label: "Relevance",    color: "#378ADD" },
+                      { label: "Accuracy",     color: "#378ADD" },
+                      { label: "Clarity",      color: "#8B5CF6" },
+                      { label: "Completeness", color: "#F59E0B" },
+                    ].map(d => {
+                      const val = Math.round((report.overall_score / 100) * 10 * 10) / 10;
+                      return (
+                        <div key={d.label} className="flex items-center gap-3">
+                          <span className="text-xs w-24 flex-shrink-0" style={{ color: "var(--text-muted)" }}>{d.label}</span>
+                          <div className="flex-1 h-1.5 rounded-full" style={{ background: "var(--border-default)" }}>
+                            <div className="h-full rounded-full" style={{ width: `${val * 10}%`, background: d.color }} />
+                          </div>
+                          <span className="text-xs font-bold w-8 text-right flex-shrink-0" style={{ color: d.color }}>{val}</span>
                         </div>
-                        <span className="text-xs font-bold w-8 text-right flex-shrink-0" style={{ color: d.color }}>{d.val}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -284,9 +455,10 @@ export default function MockInterviewPage() {
                 <div className="space-y-3">
                   <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#F59E0B" }}>Coaching Tips</h3>
                   {(report.coaching_tips || []).map((tip: string, i: number) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(10,10,10,0.6)" }}>
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl"
+                      style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                       <span style={{ color: "#F59E0B", fontWeight: 700 }}>{i + 1}.</span>
-                      <p className="text-sm" style={{ color: "#A1A1AA" }}>{tip}</p>
+                      <p className="text-sm" style={{ color: "var(--text-muted)" }}>{tip}</p>
                     </div>
                   ))}
                 </div>
@@ -295,20 +467,27 @@ export default function MockInterviewPage() {
 
             {/* Q&A Accordion */}
             <div className="glass-card p-5">
-              <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "#FFFFFF", marginBottom: 16 }}>Question Analysis</h3>
+              <h3 style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
+                Question Analysis
+              </h3>
               <div className="space-y-3">
                 {(report.questions || []).map((q: any, i: number) => (
-                  <div key={i} className="p-4 rounded-xl" style={{ background: "rgba(10,10,10,0.6)" }}>
+                  <div key={i} className="p-4 rounded-xl"
+                    style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono" style={{ color: "#52525b" }}>Q{i + 1}</span>
-                        <p className="text-sm font-medium" style={{ color: "#FFFFFF" }}>{q.text}</p>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>Q{i + 1}</span>
+                        <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{q.text}</p>
                       </div>
-                      <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 700, color: q.score >= 70 ? "#60A5FA" : "#FCD34D", minWidth: 52, textAlign: "right", flexShrink: 0, fontSize: 13 }}>
+                      <span style={{
+                        fontFamily: "Syne, sans-serif", fontWeight: 700,
+                        color: q.score >= 70 ? "#60A5FA" : "#FCD34D",
+                        minWidth: 52, textAlign: "right", flexShrink: 0, fontSize: 13,
+                      }}>
                         {q.score}/100
                       </span>
                     </div>
-                    <p className="text-xs" style={{ color: "#71717a" }}>{q.feedback}</p>
+                    <p className="text-xs" style={{ color: "var(--text-muted)" }}>{q.feedback}</p>
                   </div>
                 ))}
               </div>

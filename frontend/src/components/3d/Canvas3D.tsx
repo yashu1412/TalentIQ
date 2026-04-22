@@ -50,7 +50,7 @@ export default function Canvas3D({
             gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
           >
 
-            {children}
+            {(children as any)}
           </Canvas>
         </Suspense>
       </ErrorBoundary>

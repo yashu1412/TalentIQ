@@ -18,6 +18,8 @@ class Resume(Base):
     parse_status = Column(String(16), default="pending")   # pending|done|failed
     current_version = Column(SmallInteger, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    retention_tag = Column(String(32), default="standard")
 
     user = relationship("User", back_populates="resumes")
     versions = relationship("ResumeVersion", back_populates="resume", cascade="all, delete-orphan")

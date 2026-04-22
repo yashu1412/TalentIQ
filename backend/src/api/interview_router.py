@@ -1,22 +1,31 @@
 """Mock interview engine: start, answer, score, report."""
 import uuid
-import os
 import json
+import re
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import openai
-
 from src.core.db import get_db
 from src.core.auth import get_current_user, require_candidate
+from src.core.feature_flags import require_feature
+from src.core.openrouter_client import llm_create
+from src.data.interview_data import get_static_questions, static_score_answer, get_static_coaching_tips, get_role_round_types, ROLES
 from src.models.interview import Interview, InterviewQuestion
 from src.models.resume import Resume
 from src.models.job import Job
 from src.models.user import User
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+
+@router.get("/options")
+async def interview_options():
+    """Return available roles and their round types for frontend dropdowns."""
+    return {
+        "roles": ROLES,
+        "round_types_by_role": {role: get_role_round_types(role) for role in ROLES},
+    }
 
 
 SCORING_PROMPT = """You are an expert technical interviewer. Evaluate this answer strictly.
@@ -31,19 +40,33 @@ Return JSON with:
 Weights: technical_accuracy=30%, relevance=20%, clarity=20%, completeness=15%, conciseness=10%, confidence=5%"""
 
 
+def _extract_json(text: str) -> dict:
+    """Robustly extract JSON from LLM response."""
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if m:
+        text = m.group(1)
+    obj = re.search(r"\{.*\}", text, re.DOTALL)
+    if obj:
+        text = obj.group(0)
+    return json.loads(text)
+
+
 @router.post("/start", status_code=201)
 async def start_interview(
     payload: dict,
+    _: None = Depends(require_feature("interview_replay_enabled")),
     user: User = Depends(require_candidate),
     db: AsyncSession = Depends(get_db),
 ):
-    print(f"DEBUG: start_interview called by {user.full_name}")
     try:
         interview_type = payload.get("type", "technical")
         mode = payload.get("mode", "text")
         difficulty = payload.get("difficulty", "medium")
+        persona = payload.get("persona", "balanced")
         resume_id = payload.get("resume_id")
         job_id = payload.get("job_id")
+        role = payload.get("role")          # e.g. "Software Engineer"
+        round_type = payload.get("round_type")  # e.g. "Coding & DS/Algo"
 
         context = f"Interview type: {interview_type}, Difficulty: {difficulty}"
         if resume_id:
@@ -58,42 +81,34 @@ async def start_interview(
             if job:
                 context += f", Role: {job.title}"
 
-        oai = openai.AsyncOpenAI(
-            api_key=OPENAI_API_KEY, 
-            base_url="https://api.ai.cc/v1",
-            timeout=30.0  # Explicitly set 30s timeout
-        )
-        prompt = f"""Generate 8 {difficulty} {interview_type} interview questions. Context: {context}
-Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
-
-        print("DEBUG: Requesting questions from OpenAI...")
+        # Try LLM first
+        questions_data = None
         try:
-            resp = await oai.chat.completions.create(
-                model="gpt-4o",
+            prompt = f"""Generate 8 {difficulty} {interview_type} interview questions. Context: {context}
+Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
+            resp = await llm_create(
                 messages=[
-                    {"role": "system", "content": "Return only valid JSON."},
+                    {"role": "system", "content": "Return only valid JSON. Do not include markdown formatting."},
                     {"role": "user", "content": prompt},
                 ],
-                response_format={"type": "json_object"},
+                max_tokens=1000,
             )
-            questions_data = json.loads(resp.choices[0].message.content).get("questions", [])
-            print(f"DEBUG: Generated {len(questions_data)} questions.")
-        except Exception as oai_err:
-            print(f"ERROR: OpenAI Question Generation failed: {oai_err}")
-            # Fallback questions if AI fails/times out
-            questions_data = [
-                {"text": f"Tell me about your experience with {interview_type}.", "category": "General"},
-                {"text": "Describe a challenging project you worked on.", "category": "Experience"},
-                {"text": "How do you handle conflict in a team?", "category": "Behavioral"}
-            ]
+            questions_data = _extract_json(resp.choices[0].message.content).get("questions", [])
+        except Exception as exc:
+            print(f"LLM question generation failed ({exc}), using static fallback")
+
+        # Static fallback — role-specific questions
+        if not questions_data:
+            static = get_static_questions(role or interview_type, round_type, count=8)
+            questions_data = [{"text": q["text"], "category": q["category"]} for q in static]
 
         interview_id = str(uuid.uuid4())
-        
         interview = Interview(
             id=interview_id,
             user_id=user.id,
             type=interview_type,
             mode=mode,
+            persona=persona,
             status="active",
             resume_id=resume_id,
             job_id=job_id,
@@ -123,7 +138,6 @@ Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
             } if first_q else None,
         }
     except Exception as e:
-        print(f"ERROR: start_interview failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -131,6 +145,7 @@ Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
 async def submit_answer(
     interview_id: str,
     payload: dict,
+    _: None = Depends(require_feature("interview_replay_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -154,37 +169,25 @@ async def submit_answer(
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    # Score the answer
-    oai = openai.AsyncOpenAI(
-        api_key=OPENAI_API_KEY, 
-        base_url="https://api.ai.cc/v1",
-        timeout=30.0  # Explicitly set 30s timeout
-    )
-    print(f"DEBUG: Scoring answer for question {question.sequence}...")
+    # Try LLM scoring first
+    score_data = None
     try:
-        score_resp = await oai.chat.completions.create(
-            model="gpt-4o",
+        score_resp = await llm_create(
             messages=[
-                {"role": "system", "content": "Return only valid JSON."},
+                {"role": "system", "content": "Return only valid JSON. Do not include markdown formatting."},
                 {"role": "user", "content": SCORING_PROMPT.format(
                     question=question.question_text, answer=answer_text
                 )},
             ],
-            response_format={"type": "json_object"},
+            max_tokens=500,
         )
-        score_data = json.loads(score_resp.choices[0].message.content)
-        print(f"DEBUG: Answer scored: {score_data.get('score', 0)}")
-    except Exception as score_err:
-        print(f"ERROR: OpenAI Scoring failed: {score_err}")
-        # Fallback scoring if AI fails/times out
-        score_data = {
-            "score": 75,
-            "feedback": "Your answer has been recorded. AI scoring was temporarily unavailable, but your response shows good engagement with the topic.",
-            "dimension_scores": {
-                "technical_accuracy": 7, "relevance": 8, "clarity": 7, 
-                "completeness": 7, "conciseness": 8, "confidence": 8
-            }
-        }
+        score_data = _extract_json(score_resp.choices[0].message.content)
+    except Exception as exc:
+        print(f"LLM scoring failed ({exc}), using heuristic scoring")
+
+    # Static heuristic fallback
+    if not score_data:
+        score_data = static_score_answer(answer_text)
 
     question.answer_text = answer_text
     question.score = score_data.get("score", 0)
@@ -193,8 +196,7 @@ async def submit_answer(
 
     # Find next question
     next_q_result = await db.execute(
-        select(InterviewQuestion)
-        .where(
+        select(InterviewQuestion).where(
             InterviewQuestion.interview_id == interview_id,
             InterviewQuestion.sequence == question.sequence + 1,
         )
@@ -207,7 +209,11 @@ async def submit_answer(
     return {
         "score": question.score,
         "feedback": question.feedback,
-        "next_question": {"id": next_q.id, "text": next_q.question_text, "sequence": next_q.sequence} if next_q else None,
+        "next_question": {
+            "id": next_q.id,
+            "text": next_q.question_text,
+            "sequence": next_q.sequence,
+        } if next_q else None,
         "finished": finished,
     }
 
@@ -215,6 +221,7 @@ async def submit_answer(
 @router.post("/{interview_id}/finish")
 async def finish_interview(
     interview_id: str,
+    _: None = Depends(require_feature("interview_replay_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -232,8 +239,24 @@ async def finish_interview(
 
     scores = [q.score for q in questions if q.score is not None]
     overall = int(sum(scores) / len(scores)) if scores else 0
+    replay_items = []
+    previous_score = 0
+    for q in sorted(questions, key=lambda item: item.sequence):
+        q_score = q.score or 0
+        replay_items.append({
+            "sequence": q.sequence,
+            "question": q.question_text,
+            "answer": q.answer_text,
+            "score": q_score,
+            "delta": q_score - previous_score,
+            "feedback": q.feedback,
+            "dimension_scores": q.dimension_scores or {},
+        })
+        previous_score = q_score
+
     interview.overall_score = overall
     interview.status = "done"
+    interview.replay_json = {"timeline": replay_items, "finished_at": datetime.utcnow().isoformat()}
     await db.commit()
 
     return {"overall_score": overall, "status": "done"}
@@ -242,6 +265,7 @@ async def finish_interview(
 @router.get("/{interview_id}/report")
 async def interview_report(
     interview_id: str,
+    _: None = Depends(require_feature("interview_replay_enabled")),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -259,18 +283,31 @@ async def interview_report(
     )
     questions = q_result.scalars().all()
 
-    # Generate coaching tips
-    oai = openai.AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://api.ai.cc/v1")
-    feedbacks = [q.feedback for q in questions if q.feedback]
-    tips_prompt = f"Based on interview feedback, give 3 specific coaching tips:\n{chr(10).join(feedbacks[:5])}"
-    tips_resp = await oai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": tips_prompt}],
-    )
-    coaching_tips = [line.strip() for line in tips_resp.choices[0].message.content.split("\n") if line.strip()]
+    # Try LLM coaching tips first
+    coaching_tips = None
+    try:
+        feedbacks = [q.feedback for q in questions if q.feedback]
+        if feedbacks:
+            tips_prompt = f"Based on these interview feedback points, give 3 specific and actionable coaching tips:\n{chr(10).join(feedbacks[:5])}"
+            tips_resp = await llm_create(
+                messages=[{"role": "user", "content": tips_prompt}],
+                max_tokens=500,
+            )
+            coaching_tips = [
+                line.strip()
+                for line in tips_resp.choices[0].message.content.split("\n")
+                if line.strip()
+            ][:5]
+    except Exception as exc:
+        print(f"LLM coaching tips failed ({exc}), using static tips")
+
+    # Static fallback
+    if not coaching_tips:
+        coaching_tips = get_static_coaching_tips(5)
 
     return {
         "overall_score": interview.overall_score,
+        "persona": interview.persona,
         "questions": [
             {
                 "text": q.question_text,
@@ -281,5 +318,28 @@ async def interview_report(
             }
             for q in questions
         ],
-        "coaching_tips": coaching_tips[:5],
+        "coaching_tips": coaching_tips,
+    }
+
+
+@router.get("/{interview_id}/replay")
+async def interview_replay(
+    interview_id: str,
+    _: None = Depends(require_feature("interview_replay_enabled")),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    r = await db.execute(
+        select(Interview).where(Interview.id == interview_id, Interview.user_id == user.id)
+    )
+    interview = r.scalar_one_or_none()
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    replay = interview.replay_json or {"timeline": []}
+    return {
+        "interview_id": interview.id,
+        "persona": interview.persona or "balanced",
+        "overall_score": interview.overall_score,
+        "timeline": replay.get("timeline", []),
+        "finished_at": replay.get("finished_at"),
     }

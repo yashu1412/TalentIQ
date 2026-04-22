@@ -7,17 +7,12 @@ warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality isn't 
 
 # Windows async fix for psycopg/sqlalchemy
 if sys.platform == "win32":
-    try:
-        from asyncio import WindowsSelectorEventLoopPolicy
-    except ImportError:
-        pass
-    else:
-        if not isinstance(asyncio.get_event_loop_policy(), WindowsSelectorEventLoopPolicy):
-            asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 import logging
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, HTTPException, Request
@@ -37,6 +32,7 @@ from src.api.live_room_router import router as live_room_router
 from src.api.tracker_router import router as tracker_router
 from src.api.analytics_router import router as analytics_router
 from src.api.group_router import router as group_router
+from src.core.feature_flags import feature_flags_dependency
 
 
 @asynccontextmanager
@@ -70,13 +66,41 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_DEV_ENV = os.getenv("APP_ENV", os.getenv("ENV", "development")).lower() != "production"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
-    allow_credentials=True,
+    allow_origins=["*"] if _DEV_ENV else [
+        "https://talentiq.app",
+        "https://www.talentiq.app",
+    ],
+    allow_credentials=not _DEV_ENV,  # credentials + wildcard origin is not allowed by browsers
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+
+
+@app.middleware("http")
+async def request_observability_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    started = time.perf_counter()
+    response = await call_next(request)
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    response.headers["x-request-id"] = request_id
+    response.headers["x-response-time-ms"] = str(latency_ms)
+    logger.info(
+        "request",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "latency_ms": latency_ms,
+        },
+    )
+    return response
 
 # Mount all routers
 app.include_router(auth_router,         prefix="/v1")
@@ -106,3 +130,8 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/v1/platform/flags")
+async def get_platform_flags(flags: dict = Depends(feature_flags_dependency)):
+    return {"flags": flags}
