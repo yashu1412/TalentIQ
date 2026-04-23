@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../shared/theme/tiq_theme.dart';
-import '../../shared/widgets/tiq_widgets.dart';
+import '../../../shared/theme/tiq_theme.dart';
+import '../../../shared/widgets/tiq_widgets.dart';
 
 class TrackerPage extends StatelessWidget {
   const TrackerPage({super.key, this.initialAppId});
@@ -24,11 +24,11 @@ class TrackerPage extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(Icons.access_time, size: 14, color: TIQColors.textDim),
+              Icon(Icons.access_time, size: 14, color: TIQColors.textDim),
               const SizedBox(width: 4),
-              const Text('Applied 2 days ago', style: TIQTextStyles.bodyMedium),
+              Text('Applied 2 days ago', style: TIQTextStyles.bodyMedium),
               const Spacer(),
-              const Icon(Icons.chevron_right, color: TIQColors.textDim),
+              Icon(Icons.chevron_right, color: TIQColors.textDim),
             ],
           ),
         ],

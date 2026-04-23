@@ -24,8 +24,10 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  getMe: (token: string) => 
+  getMe: (token: string) =>
     api.get("/auth/me", { headers: { Authorization: `Bearer ${token}` } }),
+  syncUser: (data: { email?: string; full_name?: string }, token: string) =>
+    api.patch("/auth/sync", data, { headers: { Authorization: `Bearer ${token}` } }),
 };
 
 export const resumeApi = {
@@ -90,13 +92,13 @@ export const matchApi = {
 };
 
 export const groupApi = {
-  list: (token: string) => 
+  list: (token: string) =>
     api.get("/groups/", { headers: { Authorization: `Bearer ${token}` } }),
-  create: (name: string, description: string, memberEmails: string[], token: string) => 
+  create: (name: string, description: string, memberEmails: string[], token: string) =>
     api.post("/groups/", { name, description, member_emails: memberEmails }, { headers: { Authorization: `Bearer ${token}` } }),
-  getMessages: (groupId: string, token: string) => 
+  getMessages: (groupId: string, token: string) =>
     api.get(`/groups/${groupId}/messages`, { headers: { Authorization: `Bearer ${token}` } }),
-  sendMessage: (groupId: string, content: string, token: string) => 
+  sendMessage: (groupId: string, content: string, token: string) =>
     api.post(`/groups/${groupId}/messages`, { content }, { headers: { Authorization: `Bearer ${token}` } }),
   addMembers: (groupId: string, emails: string[], token: string) =>
     api.post(`/groups/${groupId}/members`, { member_emails: emails }, { headers: { Authorization: `Bearer ${token}` } }),
@@ -108,9 +110,9 @@ export const groupApi = {
     const formData = new FormData();
     formData.append("file", file);
     return api.post(`/groups/${groupId}/files`, formData, {
-      headers: { 
+      headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "multipart/form-data" 
+        "Content-Type": "multipart/form-data"
       },
     });
   },

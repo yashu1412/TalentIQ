@@ -19,5 +19,13 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     ResilienceInterceptor(dio: dio),
   );
+  dio.interceptors.add(InterceptorsWrapper(
+    onRequest: (options, handler) {
+      if (options.path.startsWith('/')) {
+        options.path = options.path.substring(1);
+      }
+      return handler.next(options);
+    },
+  ));
   return dio;
 });

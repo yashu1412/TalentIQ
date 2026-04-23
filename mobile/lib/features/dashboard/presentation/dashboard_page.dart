@@ -84,7 +84,10 @@ class DashboardPage extends ConsumerWidget {
           children: [
             // Hero Welcome
             Text('Welcome back,', style: TIQTextStyles.bodyLarge.copyWith(color: TIQColors.textMuted)),
-            const Text('Alex Developer', style: TIQTextStyles.displayLarge),
+            Text(
+              ref.watch(authControllerProvider).user?['full_name'] as String? ?? 'there',
+              style: TIQTextStyles.displayLarge,
+            ),
             const SizedBox(height: 24),
 
             // AI Status Card
@@ -133,6 +136,8 @@ class DashboardPage extends ConsumerWidget {
                 _buildQuickAction(context, 'Copilot', Icons.smart_toy_rounded, TIQColors.primary, '/copilot'),
                 _buildQuickAction(context, 'Job Match', Icons.work_outline_rounded, TIQColors.rose, '/job-analysis'),
                 _buildQuickAction(context, 'Tracker', Icons.view_kanban_rounded, TIQColors.green, '/tracker'),
+                _buildQuickAction(context, 'Group Chat', Icons.group_rounded, const Color(0xFF10B981), '/groups'),
+                _buildQuickAction(context, 'Analytics', Icons.bar_chart_rounded, TIQColors.amber, '/analytics'),
               ],
             ),
           ],

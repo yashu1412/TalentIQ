@@ -44,14 +44,5 @@ Future<void> main() async {
     return true;
   };
 
-  runZonedGuarded(
-    () => runApp(const ProviderScope(child: TalentIqApp())),
-    (error, stackTrace) {
-      TelemetryService.error(
-        'Uncaught zoned error',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    },
-  );
+  runApp(const ProviderScope(child: TalentIqApp()));
 }

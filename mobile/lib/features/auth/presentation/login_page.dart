@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../app/env.dart';
 import '../../../shared/theme/tiq_theme.dart';
 import '../../../shared/widgets/tiq_widgets.dart';
 import 'auth_controller.dart';
+import 'clerk_auth_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -19,6 +23,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void dispose() {
     _tokenController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loginWithClerk() async {
+    final authUrl = AppEnv.clerkSignInUrl;
+
+    if (kIsWeb) {
+      // On Web, internal WebViews are unreliable/blocked. Open in new tab.
+      if (await canLaunchUrl(Uri.parse(authUrl))) {
+        await launchUrl(Uri.parse(authUrl), mode: LaunchMode.externalApplication);
+        _showSuccess('Clerk tab opened. Please log in there, then return here to paste your token if needed.');
+      }
+      return;
+    }
+
+    // On Mobile, use the native WebView flow
+    final token = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (context) => const ClerkAuthPage()),
+    );
+
+    if (token != null && mounted) {
+      try {
+        await ref.read(authControllerProvider.notifier).signInWithToken(token);
+        if (ref.read(authControllerProvider).authenticated) {
+          context.go('/dashboard');
+        }
+      } catch (e) {
+        _showError('Login failed: ${e.toString()}');
+      }
+    }
   }
 
   Future<void> _saveToken() async {
@@ -37,6 +71,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
       _showError(e.toString());
     }
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: TIQColors.green,
+      ),
+    );
   }
 
   void _showError(String message) {
@@ -132,6 +175,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   
                   const SizedBox(height: 48),
                   
+                  // Integrated Clerk Login
+                  TIQPrimaryButton(
+                    label: 'Login with Clerk',
+                    icon: Icons.account_circle_outlined,
+                    onPressed: _loginWithClerk,
+                  ),
+                  const SizedBox(height: 24),
+                  
                   // Dev Token Input (for now)
                   GlassCard(
                     padding: const EdgeInsets.all(20),
@@ -144,13 +195,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           controller: _tokenController,
                           style: TIQTextStyles.bodyLarge,
                           decoration: const InputDecoration(
-                            labelText: 'Paste Bearer Token',
+                            labelText: 'Paste Bearer Token Manually',
                             prefixIcon: Icon(Icons.key, color: TIQColors.textDim),
                           ),
                         ),
                         const SizedBox(height: 16),
                         TIQPrimaryButton(
-                          label: 'Continue',
+                          label: 'Submit Token',
                           icon: Icons.arrow_forward_rounded,
                           loading: authState.loading,
                           onPressed: _saveToken,

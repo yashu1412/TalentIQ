@@ -105,3 +105,23 @@ async def update_profile(
             setattr(user.profile, key, payload[key])
     await db.commit()
     return {"ok": True}
+
+
+@router.patch("/sync")
+async def sync_clerk_user(
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sync frontend clerk user data to backend when webhook fails locally."""
+    email = payload.get("email")
+    full_name = payload.get("full_name")
+    
+    if email and "@placeholder.com" in user.email:
+        user.email = email
+    if full_name and user.full_name == "TalentIQ User":
+        user.full_name = full_name
+        
+    await db.commit()
+    return {"ok": True}
+

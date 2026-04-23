@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../shared/theme/tiq_theme.dart';
-import '../../shared/widgets/tiq_widgets.dart';
+import '../../../shared/theme/tiq_theme.dart';
+import '../../../shared/widgets/tiq_widgets.dart';
 import 'package:go_router/go_router.dart';
 
 class InterviewPage extends StatelessWidget {

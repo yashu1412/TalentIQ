@@ -20,6 +20,9 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   timezone: ^0.9.4
   shared_preferences: ^2.3.2
+  webview_flutter: ^4.13.1
+  webview_flutter_web: ^0.2.3+4
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

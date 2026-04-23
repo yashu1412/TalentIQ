@@ -14,6 +14,7 @@ import '../features/job_analysis/presentation/job_analysis_page.dart';
 import '../features/resume/presentation/resume_page.dart';
 import '../features/roadmap/presentation/roadmap_page.dart';
 import '../features/tracker/presentation/tracker_page.dart';
+import '../features/groups/presentation/groups_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefreshNotifier();
@@ -99,6 +100,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/job-analysis',
         builder: (_, __) => const JobAnalysisPage(),
+      ),
+      GoRoute(
+        path: '/groups',
+        builder: (_, __) => const GroupsPage(),
       ),
     ],
   );

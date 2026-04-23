@@ -108,7 +108,7 @@ export default function StudyNotionPage() {
           </motion.div>
         </div>
 
-        {/* Video Placeholder Section with Reveal */}
+        {/* Video Section with Reveal */}
         <motion.div 
           variants={maskReveal}
           initial="initial"
@@ -117,25 +117,19 @@ export default function StudyNotionPage() {
           className="max-w-5xl mx-auto mt-24 relative"
         >
           <div className="absolute -inset-4 bg-gradient-to-r from-[#1FA2FF] to-[#A6FFCB] opacity-20 blur-3xl rounded-[2rem]" />
-          <div className="relative aspect-video bg-[#000814] border border-[#2C333F] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] group cursor-pointer">
-            <motion.div 
-              whileHover={{ scale: 1.02 }}
-              className="absolute inset-0 flex items-center justify-center z-20"
+          <div className="relative aspect-video bg-[#000814] border border-[#2C333F] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <video 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
             >
-              <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-[#FFD60A] group-hover:text-[#000814] transition-all duration-500 shadow-2xl">
-                <Play className="w-10 h-10 fill-current ml-1" />
-              </div>
-            </motion.div>
-            <div className="absolute inset-0 opacity-20 pointer-events-none font-mono text-sm p-12 bg-grid-white/[0.02]">
-              <pre className="text-[#1FA2FF]">
-                {`const platform = {
-  name: "StudyNotion",
-  features: ["Learn", "Teach", "Earn", "Grow"],
-  stack: "MERN + Razorpay + Cloudinary",
-  mission: "Democratize Education"
-};`}
-              </pre>
-            </div>
+              <source src="/banner.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            {/* Optional tint overlay to make text pop if needed */}
+            <div className="absolute inset-0 bg-blue-900/10 pointer-events-none mix-blend-overlay"></div>
           </div>
         </motion.div>
       </section>

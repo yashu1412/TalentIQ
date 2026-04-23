@@ -3,13 +3,14 @@
 import { useState, useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import {
   LayoutDashboard, FileText, Briefcase, Bot, Video,
   ListTodo, BarChart2, Zap, Bell, Search, Users, History, Map,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import StatusDot from "@/components/ui/StatusDot";
+import { authApi } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/dashboard",       icon: LayoutDashboard, label: "Dashboard",      color: "var(--color-teal-600)" },
@@ -29,10 +30,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const { user } = useUser();
+  const { getToken } = useAuth();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      const sync = async () => {
+        try {
+          const token = await getToken();
+          if (token) {
+            await authApi.syncUser(
+              {
+                email: user.primaryEmailAddress?.emailAddress,
+                full_name: user.fullName || user.firstName || "TalentIQ User",
+              },
+              token
+            );
+          }
+        } catch (e) {
+          console.error("Failed to sync user", e);
+        }
+      };
+      sync();
+    }
+  }, [user, getToken]);
 
   if (!mounted) {
     return <div className="flex h-screen bg-[var(--bg-primary)]" />;

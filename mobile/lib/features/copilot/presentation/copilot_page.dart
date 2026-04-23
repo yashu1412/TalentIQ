@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../shared/theme/tiq_theme.dart';
-import '../../shared/widgets/tiq_widgets.dart';
+import '../../../shared/theme/tiq_theme.dart';
+import '../../../shared/widgets/tiq_widgets.dart';
 
 class CopilotPage extends StatefulWidget {
   const CopilotPage({super.key, this.initialCompany, this.initialRole});
@@ -66,7 +66,7 @@ class _CopilotPageState extends State<CopilotPage> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Center(
+                Center(
                   child: TIQBadge('Today', color: TIQColors.textDim),
                 ),
                 const SizedBox(height: 24),
