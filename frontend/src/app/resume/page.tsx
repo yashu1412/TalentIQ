@@ -6,7 +6,7 @@ import { useDropzone } from "react-dropzone";
 import { useAuth } from "@clerk/nextjs";
 import DashboardLayout from "@/components/DashboardLayout";
 import dynamic from "next/dynamic";
-import { Upload, FileText, CheckCircle, AlertCircle, Zap, ArrowRight, Sparkles, Trash2 } from "lucide-react";
+import { Upload, FileText, CheckCircle, AlertCircle, ArrowRight, Sparkles, Trash2 } from "lucide-react";
 import axios from "axios";
 import AITyping from "@/components/ui/AITyping";
 import { copilotApi } from "@/lib/api";
@@ -14,7 +14,26 @@ import { copilotApi } from "@/lib/api";
 const ResumeOrb = dynamic(() => import("@/components/3d/ResumeOrb"), { ssr: false });
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1";
-type ParseStatus = "idle" | "processing" | "done" | "error";
+type ParseStatus = "idle" | "setup" | "processing" | "done" | "error";
+
+const ROLES = [
+  { value: "Software Engineer",        label: "Software Engineer",        icon: "💻" },
+  { value: "Frontend Developer",       label: "Frontend Developer",       icon: "🎨" },
+  { value: "Backend Developer",        label: "Backend Developer",        icon: "⚙️" },
+  { value: "Data Scientist",           label: "Data Scientist",           icon: "📊" },
+  { value: "Machine Learning Engineer",label: "Machine Learning Engineer",icon: "🤖" },
+  { value: "DevOps Engineer",          label: "DevOps Engineer",          icon: "🔄" },
+  { value: "Cloud Architect",          label: "Cloud Architect",          icon: "☁️" },
+  { value: "Cybersecurity Analyst",    label: "Cybersecurity Analyst",    icon: "🛡️" },
+  { value: "Product Manager",          label: "Product Manager",          icon: "📋" },
+  { value: "UX Designer",              label: "UX Designer",              icon: "✏️" },
+];
+
+const LEVELS = [
+  { value: "fresher", label: "Fresher", range: "0 – 1 year", desc: "Recent grad or entry-level" },
+  { value: "intermediate", label: "Intermediate", range: "1 – 3 years", desc: "Some professional experience" },
+  { value: "advanced", label: "Advanced", range: "3+ years", desc: "Senior / lead level" },
+];
 
 const AI_SUGGESTIONS = [
   "Tip: Quantify your impact — try '20+ concurrent workflow runs improved throughput by 35%'",
@@ -25,11 +44,21 @@ const AI_SUGGESTIONS = [
 
 const RESUME_KEY = "talentiq_resume_data";
 
+/** Safely coerce any API value to an array. Handles strings, null, undefined. */
+const toArr = <T>(val: unknown): T[] => {
+  if (Array.isArray(val)) return val as T[];
+  if (typeof val === "string" && val) return val.split(",").map(s => s.trim()).filter(Boolean) as T[];
+  return [];
+};
+
 export default function ResumePage() {
   const router = useRouter();
   const { getToken } = useAuth();
   const [status, setStatus] = useState<ParseStatus>("idle");
   const [progress, setProgress] = useState(0);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [targetRole, setTargetRole] = useState("Software Engineer");
+  const [expLevel, setExpLevel] = useState("fresher");
   const [resumeData, setResumeData] = useState<any>(() => {
     if (typeof window === "undefined") return null;
     try { const s = localStorage.getItem(RESUME_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
@@ -50,16 +79,24 @@ export default function ResumePage() {
     setResumeData(null); setStatus("idle"); setProgress(0); setShowSuggestions(false); setSuggestionIdx(0);
   };
 
-  const onDrop = useCallback(async (files: File[]) => {
+  const onDrop = useCallback((files: File[]) => {
     const file = files[0];
     if (!file) return;
+    setPendingFile(file);
+    setStatus("setup");  // show role/level selector before uploading
+  }, []);
+
+  const startUpload = useCallback(async () => {
+    if (!pendingFile) return;
     setStatus("processing");
     setProgress(10);
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", pendingFile);
+    formData.append("target_role", targetRole);
+    formData.append("experience_level", expLevel);
     try {
       const token = await getToken();
-      if (!token) { setStatus("error"); return; }  // guard: Clerk not ready
+      if (!token) { setStatus("error"); return; }
       const resp = await axios.post(`${API}/resumes/upload`, formData, {
         headers: { 
           "Content-Type": "multipart/form-data",
@@ -70,7 +107,7 @@ export default function ResumePage() {
       setProgress(40);
       const poll = setInterval(async () => {
         try {
-          const freshToken = await getToken();  // always get fresh token on each poll
+          const freshToken = await getToken({ skipCache: true });
           if (!freshToken) { clearInterval(poll); setStatus("error"); return; }
           const detail = await axios.get(`${API}/resumes/${id}`, {
             headers: { Authorization: `Bearer ${freshToken}` }
@@ -91,7 +128,7 @@ export default function ResumePage() {
         } catch { clearInterval(poll); setStatus("error"); }
       }, 2000);
     } catch { setStatus("error"); }
-  }, [getToken]);
+  }, [pendingFile, targetRole, expLevel, getToken]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -179,6 +216,61 @@ export default function ResumePage() {
               </div>
             )}
 
+            {/* ── Pre-upload setup modal ── */}
+            {status === "setup" && (
+              <div className="glass-card p-6 space-y-6" style={{ border: "1px solid #378ADD" }}>
+                <div>
+                  <p className="text-xs font-mono mb-2" style={{ color: "#378ADD", letterSpacing: "0.12em" }}>STEP 1 / 2 · TARGET ROLE</p>
+                  <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                    {ROLES.map(r => (
+                      <button
+                        key={r.value}
+                        onClick={() => setTargetRole(r.value)}
+                        className="flex items-center gap-2 p-2.5 rounded-xl text-left transition-all"
+                        style={{
+                          background: targetRole === r.value ? "rgba(55,138,221,0.18)" : "var(--bg-deep)",
+                          border: `1.5px solid ${targetRole === r.value ? "#378ADD" : "var(--border-default)"}`,
+                        }}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: 1 }}>{r.icon}</span>
+                        <p className="text-xs font-semibold leading-tight" style={{ color: targetRole === r.value ? "#60A5FA" : "var(--text-primary)" }}>{r.label}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-mono mb-1" style={{ color: "#8B5CF6", letterSpacing: "0.12em" }}>STEP 2 / 2 · EXPERIENCE LEVEL</p>
+                  <div className="space-y-2 mt-2">
+                    {LEVELS.map(l => (
+                      <button
+                        key={l.value}
+                        onClick={() => setExpLevel(l.value)}
+                        className="w-full p-3 rounded-xl text-left transition-all flex items-center justify-between"
+                        style={{
+                          background: expLevel === l.value ? "rgba(139,92,246,0.15)" : "var(--bg-deep)",
+                          border: `1.5px solid ${expLevel === l.value ? "#8B5CF6" : "var(--border-default)"}`,
+                        }}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: expLevel === l.value ? "#A78BFA" : "var(--text-primary)" }}>{l.label}</p>
+                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{l.desc}</p>
+                        </div>
+                        <span className="text-xs font-mono px-2 py-1 rounded-lg" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>{l.range}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => { setStatus("idle"); setPendingFile(null); }} className="glow-btn text-sm py-2 px-4" style={{ borderColor: "var(--border-default)", color: "var(--text-muted)" }}>Cancel</button>
+                  <button onClick={startUpload} className="glow-btn text-sm py-2 px-4 flex-1" style={{ borderColor: "#378ADD", color: "#60A5FA" }}>
+                    <Sparkles className="w-3.5 h-3.5" /> Analyse Resume
+                  </button>
+                </div>
+              </div>
+            )}
+
             {status === "processing" && (
               <div className="glass-card p-6 space-y-3">
                 <div className="flex items-center gap-3">
@@ -233,7 +325,7 @@ export default function ResumePage() {
 
                 {activeTab === "skills" && (
                   <div className="flex flex-wrap gap-2">
-                    {(parsed.skills as string[] || []).map((sk, i) => (
+                    {toArr<string>(parsed.skills).map((sk, i) => (
                       <span key={i} className="skill-badge-matched">{sk}</span>
                     ))}
                   </div>
@@ -241,7 +333,7 @@ export default function ResumePage() {
 
                 {activeTab === "experience" && (
                   <div className="space-y-4">
-                    {(parsed.experience as any[] || []).map((exp: any, i: number) => (
+                    {toArr<any>(parsed.experience).map((exp: any, i: number) => (
                       <div key={i} className="p-4 rounded-xl" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                         <div className="flex justify-between items-start mb-1">
                           <div>
@@ -251,7 +343,7 @@ export default function ResumePage() {
                           <span className="text-xs" style={{ color: "var(--text-muted)" }}>{exp.duration}</span>
                         </div>
                         <ul className="mt-2 space-y-1">
-                          {(exp.bullets as string[] || []).slice(0, 3).map((b: string, j: number) => (
+                          {toArr<string>(exp.bullets).slice(0, 3).map((b: string, j: number) => (
                             <li key={j} className="text-xs" style={{ color: "var(--text-muted)" }}>• {b}</li>
                           ))}
                         </ul>
@@ -262,7 +354,7 @@ export default function ResumePage() {
 
                 {activeTab === "education" && (
                   <div className="space-y-3">
-                    {(parsed.education as any[] || []).map((edu: any, i: number) => (
+                    {toArr<any>(parsed.education).map((edu: any, i: number) => (
                       <div key={i} className="p-4 rounded-xl" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                         <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>{edu.school}</p>
                         <p className="text-sm" style={{ color: "#378ADD" }}>{edu.degree}</p>
@@ -274,12 +366,12 @@ export default function ResumePage() {
 
                 {activeTab === "projects" && (
                   <div className="space-y-3">
-                    {(parsed.projects as any[] || []).map((p: any, i: number) => (
+                    {toArr<any>(parsed.projects).map((p: any, i: number) => (
                       <div key={i} className="p-4 rounded-xl" style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}>
                         <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{p.name}</p>
                         <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{p.description}</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {(p.tech as string[] || []).map((t: string, j: number) => (
+                          {toArr<string>(p.tech).map((t: string, j: number) => (
                             <span key={j} className="skill-badge-bonus">{t}</span>
                           ))}
                         </div>

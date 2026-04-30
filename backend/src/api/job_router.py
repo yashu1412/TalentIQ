@@ -107,11 +107,31 @@ async def get_job(
 match_router = APIRouter(prefix="/matches", tags=["matches"])
 
 
-def _jaccard_overlap(set_a: set, set_b: set) -> float:
-    if not set_a or not set_b:
-        return 0.0
-    intersection = set_a.intersection(set_b)
-    return len(intersection) / len(set_a.union(set_b))
+def _calculate_overlap(resume_skills: set, jd_skills: set) -> float:
+    if not jd_skills:
+        return 1.0, []
+    if not resume_skills:
+        return 0.0, list(jd_skills)
+
+    # Normalize skills for fuzzy matching (e.g. "react.js" -> "react")
+    def normalize(s):
+        import re
+        return re.sub(r'[^a-z0-9]', '', s.lower())
+
+    norm_resume = {normalize(s) for s in resume_skills}
+    
+    match_count = 0
+    missing = []
+    
+    for req in jd_skills:
+        norm_req = normalize(req)
+        # Exact normalized match or partial match (e.g. 'react' in 'reactjs')
+        if norm_req in norm_resume or any(norm_req in r or r in norm_req for r in norm_resume if len(r) > 2 and len(norm_req) > 2):
+            match_count += 1
+        else:
+            missing.append(req)
+            
+    return match_count / len(jd_skills), missing
 
 
 @match_router.post("/create", status_code=202)
@@ -146,18 +166,23 @@ async def create_match(
         s.lower() for s in (job.parsed_json or {}).get("nice_to_have", [])
     ) if job.parsed_json else set()
 
-    skills_overlap = _jaccard_overlap(resume_skills, jd_must)
-    keyword_density = min(1.0, len(resume_skills.intersection(jd_must | jd_nice)) / max(1, len(jd_must | jd_nice)))
-    missing_skills = list(jd_must - resume_skills)
+    must_overlap_ratio, missing_must = _calculate_overlap(resume_skills, jd_must)
+    nice_overlap_ratio, missing_nice = _calculate_overlap(resume_skills, jd_nice)
+    
+    missing_skills = missing_must
 
-    # Weighted formula from design doc.
-    # NOTE: weighted sum is in [0,1], so clamp after multiplying by 100.
+    # Weighted formula: 60% must-have skills, 20% nice-to-have, 20% baseline/experience
     weighted = (
-        skills_overlap * 0.40
-        + keyword_density * 0.10
-        + 0.30  # placeholder for semantic/project/exp
+        must_overlap_ratio * 0.60
+        + nice_overlap_ratio * 0.20
+        + 0.20  # baseline
     )
     match_score = int(min(1.0, max(0.0, weighted)) * 100)
+    
+    # Calculate keyword density (ATS Score) as overall coverage of all JD skills
+    all_jd_skills = jd_must | jd_nice
+    overall_ratio, _ = _calculate_overlap(resume_skills, all_jd_skills)
+    ats_score = int(overall_ratio * 100)
 
     recommendations = [
         {"skill": s, "resource": f"Learn {s} on Coursera/Udemy", "priority": "high"}
@@ -175,7 +200,7 @@ async def create_match(
         resume_id=resume_id,
         job_id=job_id,
         match_score=match_score,
-        ats_score=int(keyword_density * 100),
+        ats_score=ats_score,
         missing_skills=missing_skills,
         recommendations=recommendations,
     )
@@ -267,10 +292,9 @@ async def ats_simulate(
         if version_number in seen_versions:
             continue
         seen_versions[version_number] = True
-        skill_set = set(s.lower() for s in version["skills"])
-        overlap = len(skill_set.intersection(job_skills))
-        score = int(min(100, (overlap / max(1, len(job_skills))) * 100))
-        comparison.append({"version": version_number, "ats_score": score, "matched_keywords": overlap})
+        overlap_ratio, _ = _calculate_overlap(version["skills"], job_skills)
+        score = int(overlap_ratio * 100)
+        comparison.append({"version": version_number, "ats_score": score, "matched_keywords": int(overlap_ratio * len(job_skills))})
 
     comparison.sort(key=lambda x: x["version"])
     best = max(comparison, key=lambda x: x["ats_score"]) if comparison else None

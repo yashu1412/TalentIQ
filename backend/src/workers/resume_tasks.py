@@ -14,6 +14,7 @@ from src.models.resume import Resume
 from src.models.embeddings import DocumentEmbedding
 from src.core.db import engine, AsyncSessionLocal
 from src.core.openrouter_client import get_openrouter_client, OR_DEFAULT_MODEL
+from src.services.scoring_service import calculate_ats_score, extract_resume_data
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,33 @@ async def get_embeddings(texts: list[str]) -> list[list[float]]:
     return [d.embedding for d in response.data]
 
 
-async def _parse_resume_async(resume_id: str):
+async def _generate_embeddings_async(resume_id: str, user_id: str, raw_text: str):
+    """Fire-and-forget: generate embeddings after resume is already marked done."""
+    try:
+        chunks = chunk_text(raw_text)
+        if not chunks:
+            return
+        embeddings = await get_embeddings(chunks[:20])  # cap at 20 chunks for cost
+        async with AsyncSessionLocal() as db:
+            for idx, (chunk, emb) in enumerate(zip(chunks[:20], embeddings)):
+                doc_emb = DocumentEmbedding(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    doc_type="resume",
+                    doc_id=resume_id,
+                    chunk_index=idx,
+                    content=chunk,
+                    embedding=emb,
+                    metadata_json={"section": "full", "source": "resume"},
+                )
+                db.add(doc_emb)
+            await db.commit()
+        logger.info("resume_embeddings_done resume_id=%s", resume_id)
+    except Exception as e:
+        logger.warning("Embedding generation failed for resume_id=%s: %s", resume_id, e)
+
+
+async def _parse_resume_async(resume_id: str, target_role: str = "fullstack_developer", experience_level: str = "fresher"):
     logger.info("resume_parse_start resume_id=%s", resume_id)
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(Resume).where(Resume.id == resume_id))
@@ -62,87 +89,53 @@ async def _parse_resume_async(resume_id: str):
         file_url = resume.file_url or ""
         if file_url.startswith("data:application/pdf;base64,"):
             import base64
-
             b64 = file_url.split(",", 1)[1]
-            file_bytes = base64.b64decode(b64)
+            # Run in thread — base64 decode of large PDFs is CPU-bound
+            file_bytes = await asyncio.to_thread(base64.b64decode, b64)
         else:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.get(file_url)
                 file_bytes = resp.content
 
-        # Extract text
-        raw_text = extract_text_from_pdf(file_bytes)
+        # --- Step 1: Extract text (non-blocking — offloaded to thread pool) ---
+        # PyMuPDF (fitz) is synchronous; running it inline blocks the event loop
+        # and prevents FastAPI from serving the frontend's status-poll requests.
+        raw_text = await asyncio.to_thread(extract_text_from_pdf, file_bytes)
         resume.raw_text = raw_text
 
-        # LLM parse sections via OpenRouter
-        oai = get_openrouter_client()
-        parse_prompt = f"""
-Parse this resume and return a JSON with keys:
-skills (list of strings), experience (list of dicts with company/role/duration/bullets),
-education (list of dicts with school/degree/year), projects (list of dicts with name/tech/description).
-Resume text:
-{raw_text[:8000]}
-"""
-        chat_resp = await oai.chat.completions.create(
-            model=OR_DEFAULT_MODEL,  # uses Gemini or OpenRouter depending on env
-            messages=[
-                {"role": "system", "content": "You are a resume parsing expert. Return only valid JSON."},
-                {"role": "user", "content": parse_prompt},
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=1500,  # cap to stay within OpenRouter free-tier (4000 tokens)
-        )
-        import json
-        import re
-        content = chat_resp.choices[0].message.content
-        # Robustly extract JSON if LLM wraps it in markdown backticks
-        match = re.search(r"```(?:json)?(.*?)```", content, re.DOTALL)
-        if match:
-            content = match.group(1).strip()
-        
-        parsed = json.loads(content)
+        # --- Step 2: Parse sections (fast, local heuristic) ---
+        parsed = extract_resume_data(raw_text)
+
+        # --- Step 3: ATS scoring with user-selected role + level ---
+        # Map frontend level names to scoring service internal names
+        level_map = {"fresher": "fresher", "intermediate": "mid", "advanced": "senior"}
+        scoring_level = level_map.get(experience_level, "fresher")
+        scoring_result = calculate_ats_score(raw_text, role=target_role, level=scoring_level)
+        logger.info("ATS scoring complete resume_id=%s role=%s level=%s score=%s",
+                    resume_id, target_role, scoring_level, scoring_result["final_score"])
+
+        parsed["ats_breakdown"] = scoring_result["breakdown"]
         resume.parsed_json = parsed
+        resume.ats_score = int(scoring_result["final_score"])
+        resume.quality_score = min(100, int(scoring_result["final_score"] + scoring_result["breakdown"]["formatting"]))
 
-        # ATS score: keyword overlap with tech vocabulary
-        tech_vocab = {"python", "javascript", "typescript", "react", "fastapi", "docker", "kubernetes",
-                      "aws", "gcp", "azure", "postgresql", "redis", "mongodb", "node", "java",
-                      "machine learning", "deep learning", "sql", "git", "ci/cd", "rest api",
-                      "microservices", "graphql", "tensorflow", "pytorch"}
-        
-        # Check if keyword substring exists in text (allows matching multi-word phrases)
-        raw_lower = raw_text.lower()
-        hits = sum(1 for keyword in tech_vocab if keyword in raw_lower)
-        
-        resume.ats_score = min(100, int((hits / len(tech_vocab)) * 100 * 2))
-        resume.quality_score = min(100, resume.ats_score + 10)
-
-        # Embeddings
-        chunks = chunk_text(raw_text)
-        if chunks:
-            embeddings = await get_embeddings(chunks[:20])  # cap at 20 chunks for cost
-            for idx, (chunk, emb) in enumerate(zip(chunks[:20], embeddings)):
-                doc_emb = DocumentEmbedding(
-                    id=str(uuid.uuid4()),
-                    user_id=resume.user_id,
-                    doc_type="resume",
-                    doc_id=resume_id,
-                    chunk_index=idx,
-                    content=chunk,
-                    embedding=emb,
-                    metadata_json={"section": "full", "source": "resume"},
-                )
-                db.add(doc_emb)
-
+        # --- Step 4: Mark done immediately so UI unblocks ---
         resume.parse_status = "done"
         await db.commit()
         logger.info("resume_parse_done resume_id=%s", resume_id)
 
+    # --- Step 5: Generate embeddings (runs after DB shows "done", UI already unblocked) ---
+    # We await directly instead of ensure_future: in the Celery path asyncio.run()
+    # cancels outstanding futures before they execute, so fire-and-forget is a no-op there.
+    # Awaiting here works in both paths — the frontend already sees "done" from the DB commit above.
+    await _generate_embeddings_async(resume_id, resume.user_id, raw_text)
+
 
 @celery_app.task(name="src.workers.resume_tasks.parse_resume", queue="high", bind=True, max_retries=3)
-def parse_resume(self, resume_id: str):
+def parse_resume(self, resume_id: str, target_role: str = "fullstack_developer", experience_level: str = "fresher"):
     """Celery task: parse and embed a resume."""
     try:
-        asyncio.run(_parse_resume_async(resume_id))
+        asyncio.run(_parse_resume_async(resume_id, target_role, experience_level))
     except Exception as exc:
         logger.exception("resume_parse_retry resume_id=%s error=%s", resume_id, exc)
         raise self.retry(exc=exc, countdown=30)

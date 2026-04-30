@@ -74,7 +74,9 @@ export default function MockInterviewPage() {
   const [report, setReport] = useState<any>(null);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
   const [starting, setStarting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   // Available round types for selected role
   const availableRounds = roundTypesByRole[role] ?? ["Behavioral", "Technical", "HR"];
@@ -142,8 +144,17 @@ export default function MockInterviewPage() {
     }
   };
 
-  const submitAnswer = async () => {
-    if (!interviewId || !currentQ || !answer.trim()) return;
+  const submitAnswer = async (overrideAnswer?: string) => {
+    // Determine what answer to submit
+    const finalAnswer = typeof overrideAnswer === 'string' ? overrideAnswer : answer.trim();
+    if (!interviewId || !currentQ || !finalAnswer) return;
+    
+    // Stop listening if active
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
+
     setAvatarState("thinking");
     if (timerRef.current) clearInterval(timerRef.current);
     try {
@@ -151,7 +162,7 @@ export default function MockInterviewPage() {
       const headers = { Authorization: `Bearer ${token}` };
       const resp = await axios.post(
         `${API}/interviews/${interviewId}/answer`,
-        { question_id: currentQ.id, answer_text: answer },
+        { question_id: currentQ.id, answer_text: finalAnswer },
         { headers }
       );
       setFeedback(resp.data.feedback);
@@ -176,7 +187,50 @@ export default function MockInterviewPage() {
 
   const skipQuestion = async () => {
     if (!interviewId || !currentQ) return;
-    await submitAnswer();
+    await submitAnswer("Skipped by user.");
+  };
+
+  const toggleVoice = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Voice recognition is not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      if (finalTranscript) {
+        setAnswer(prev => prev + (prev ? " " : "") + finalTranscript);
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+    setIsListening(true);
   };
 
   const resetInterview = () => {
@@ -188,6 +242,10 @@ export default function MockInterviewPage() {
     setScore(null);
     setAvatarState("idle");
     setQIndex(1);
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
   };
 
   return (
@@ -375,8 +433,17 @@ export default function MockInterviewPage() {
                   style={{ background: "transparent", color: "var(--text-primary)", fontFamily: "DM Sans, sans-serif" }}
                 />
                 <div className="flex gap-3 mt-3">
-                  <button className="glow-btn text-sm" style={{ opacity: 0.5 }}>
-                    <Mic className="w-4 h-4" /> Voice
+                  <button 
+                    onClick={toggleVoice}
+                    className="glow-btn text-sm" 
+                    style={{ 
+                      opacity: 1, 
+                      borderColor: isListening ? "#F43F5E" : "var(--border-default)",
+                      color: isListening ? "#F43F5E" : "inherit"
+                    }}
+                  >
+                    <Mic className={`w-4 h-4 ${isListening ? 'animate-pulse' : ''}`} /> 
+                    {isListening ? "Stop" : "Voice"}
                   </button>
                   <button
                     onClick={submitAnswer}

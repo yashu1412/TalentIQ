@@ -69,11 +69,16 @@ export default function JobAnalysisPage() {
       ]);
       setJobData(jobDetail.data);
       const parsedMatch = match.data;
-      const parsedJob = jobDetail.data?.parsed_json;
+      const parsedJob = jobDetail.data?.parsed_json || {};
+      
+      const mustHave = parsedJob.must_have || parsedJob.required_skills || parsedJob.skills || [];
+      const niceToHave = parsedJob.nice_to_have || parsedJob.preferred_skills || parsedJob.bonus || [];
+      const missingSkillsLower = (parsedMatch.missing_skills || []).map((s: string) => s.toLowerCase());
+
       const newMatch = {
-        matched: parsedJob?.must_have?.filter((s: string) => !parsedMatch.missing_skills?.includes(s)) || [],
+        matched: mustHave.filter((s: string) => !missingSkillsLower.includes(s.toLowerCase())),
         missing: parsedMatch.missing_skills || [],
-        bonus: parsedJob?.nice_to_have || [],
+        bonus: niceToHave,
         matchScore: parsedMatch.match_score || 0,
         atsScore: parsedMatch.ats_score || 0,
         recommendations: parsedMatch.recommendations || [],

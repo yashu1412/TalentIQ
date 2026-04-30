@@ -89,7 +89,20 @@ async def copilot_chat(
     # Gather context
     context_parts = [f"User: {user.full_name}"]
     if user.profile and user.profile.skills_summary:
-        context_parts.append(f"Skills: {user.profile.skills_summary}")
+        context_parts.append(f"Profile Skills: {user.profile.skills_summary}")
+
+    # Fetch latest parsed resume for the user to inject into prompt context
+    r_result = await db.execute(
+        select(Resume)
+        .where(Resume.user_id == user.id)
+        .order_by(Resume.created_at.desc())
+        .limit(1)
+    )
+    latest_resume = r_result.scalar_one_or_none()
+    if latest_resume and latest_resume.parsed_json:
+        # Pass up to ~3000 chars of the parsed JSON to the LLM to provide resume context
+        resume_context = json.dumps(latest_resume.parsed_json)
+        context_parts.append(f"Candidate's Actual Resume Data: {resume_context[:3000]}")
 
     intent = await _detect_intent(message)
     system_prompt = (
@@ -110,7 +123,7 @@ async def copilot_chat(
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": message},
                 ],
-                max_tokens=800,
+                max_tokens=4500,
                 stream=True,
             )
             async for chunk in stream:

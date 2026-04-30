@@ -20,6 +20,8 @@ class Resume(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
     retention_tag = Column(String(32), default="standard")
+    target_role = Column(String(64), default="fullstack_developer")   # user-selected role
+    experience_level = Column(String(16), default="fresher")          # fresher|intermediate|advanced
 
     user = relationship("User", back_populates="resumes")
     versions = relationship("ResumeVersion", back_populates="resume", cascade="all, delete-orphan")

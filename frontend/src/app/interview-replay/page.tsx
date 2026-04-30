@@ -17,6 +17,20 @@ function InterviewReplayContent() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [interviews, setInterviews] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadList = async () => {
+      try {
+        const token = await getToken();
+        const resp = await interviewApi.list(token || "");
+        setInterviews(resp.data.interviews || []);
+      } catch (err) {
+        console.error("Failed to load past interviews", err);
+      }
+    };
+    loadList();
+  }, [getToken]);
 
   const loadReplay = async (id: string) => {
     if (!id.trim()) {
@@ -44,9 +58,11 @@ function InterviewReplayContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryInterviewId]);
 
-  const handleLoad = async () => {
-    const id = interviewId.trim();
-    const nextUrl = id ? `${pathname}?id=${encodeURIComponent(id)}` : pathname;
+  const handleLoad = async (overrideId?: string) => {
+    const id = (overrideId || interviewId).trim();
+    if (!id) return;
+    setInterviewId(id);
+    const nextUrl = `${pathname}?id=${encodeURIComponent(id)}`;
     router.replace(nextUrl);
     await loadReplay(id);
   };
@@ -61,38 +77,41 @@ function InterviewReplayContent() {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
-        <div>
-          <p className="text-xs font-mono" style={{ color: "#8B5CF6", letterSpacing: "0.15em" }}>SYSTEM / INTERVIEW REPLAY</p>
-          <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Interview Replay</h1>
-        </div>
-
-        <div className="glass-card p-5 space-y-3">
-          <p className="text-xs font-mono" style={{ color: "var(--text-muted)", letterSpacing: "0.1em" }}>
-            LOAD INTERVIEW REPLAY
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            <input
-              value={interviewId}
-              onChange={(e) => setInterviewId(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleLoad(); }}
-              placeholder="Enter interview ID"
-              className="flex-1 min-w-[280px] p-3 rounded-xl text-sm outline-none"
-              style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
-            />
-            <button onClick={handleLoad} disabled={loading} className="glow-btn glow-btn-primary text-sm py-2 px-4">
-              <Search className="w-4 h-4" />
-              {loading ? "Loading..." : "Load Replay"}
-            </button>
-            <button onClick={reset} className="glow-btn text-sm py-2 px-4">
-              <RotateCcw className="w-4 h-4" /> Reset
-            </button>
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-xs font-mono" style={{ color: "#8B5CF6", letterSpacing: "0.15em" }}>SYSTEM / INTERVIEW REPLAY</p>
+            <h1 style={{ fontFamily: "Syne, sans-serif", fontSize: 30, fontWeight: 800, color: "var(--text-primary)" }}>Interview Replay</h1>
           </div>
-          {!queryInterviewId && !data && !error && (
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Tip: Paste an interview ID from your completed mock interview report.
-            </p>
+          {data && (
+             <button onClick={reset} className="glow-btn text-sm py-2 px-4">
+               <RotateCcw className="w-4 h-4" /> Reset
+             </button>
           )}
         </div>
+
+        {!data && interviews.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Your Past Interviews</h3>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {interviews.map(inv => (
+                <button 
+                  key={inv.id} 
+                  onClick={() => handleLoad(inv.id)}
+                  className="p-4 rounded-xl text-left transition-all hover:border-[#378ADD]"
+                  style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-semibold text-[var(--text-primary)] capitalize">{inv.type} Interview</span>
+                    <span className="text-xs font-mono text-[#378ADD]">{inv.overall_score ?? 0}/100</span>
+                  </div>
+                  <div className="text-xs text-[var(--text-muted)]">
+                    Persona: {inv.persona} • {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : 'Unknown Date'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {error && <div className="glass-card p-6 text-sm" style={{ color: "#be123c" }}>{error}</div>}
         {data && (

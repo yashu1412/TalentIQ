@@ -28,6 +28,35 @@ async def interview_options():
     }
 
 
+@router.get("/")
+async def list_interviews(
+    _: None = Depends(require_feature("interview_replay_enabled")),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch all past interviews for the user."""
+    result = await db.execute(
+        select(Interview)
+        .where(Interview.user_id == user.id)
+        .order_by(Interview.created_at.desc())
+    )
+    interviews = result.scalars().all()
+    
+    return {
+        "interviews": [
+            {
+                "id": i.id,
+                "type": i.type,
+                "persona": i.persona,
+                "status": i.status,
+                "overall_score": i.overall_score,
+                "created_at": i.created_at.isoformat() if i.created_at else None,
+            }
+            for i in interviews
+        ]
+    }
+
+
 SCORING_PROMPT = """You are an expert technical interviewer. Evaluate this answer strictly.
 Question: {question}
 Answer: {answer}

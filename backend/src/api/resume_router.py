@@ -3,7 +3,7 @@ import uuid
 import io
 import os
 import json
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import httpx
@@ -36,10 +36,25 @@ async def upload_to_cloudinary(file_bytes: bytes, filename: str) -> str:
 @router.post("/upload", status_code=202)
 async def upload_resume(
     file: UploadFile = File(...),
+    target_role: str = Form(default="fullstack_developer"),
+    experience_level: str = Form(default="fresher"),
     _: None = Depends(require_feature("resume_pipeline_enabled")),
     user: User = Depends(require_candidate),
     db: AsyncSession = Depends(get_db),
 ):
+    # Validate inputs
+    valid_roles = {
+        "Software Engineer", "Frontend Developer", "Backend Developer",
+        "Data Scientist", "Machine Learning Engineer", "DevOps Engineer",
+        "Cloud Architect", "Cybersecurity Analyst", "Product Manager", "UX Designer",
+        # legacy keys
+        "frontend_developer", "backend_developer", "fullstack_developer",
+    }
+    valid_levels = {"fresher", "intermediate", "advanced"}
+    if target_role not in valid_roles:
+        target_role = "Software Engineer"
+    if experience_level not in valid_levels:
+        experience_level = "fresher"
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
     if file.size and file.size > 5 * 1024 * 1024:
@@ -64,19 +79,20 @@ async def upload_resume(
         file_url=file_url,
         file_name=file.filename,
         parse_status="pending",
+        target_role=target_role,
+        experience_level=experience_level,
     )
     db.add(resume)
     await db.commit()
 
     # Enqueue Celery task
     try:
-        parse_resume.delay(resume_id)
+        parse_resume.delay(resume_id, target_role, experience_level)
     except Exception:
         # Dev fallback: run the parser in a native FastAPI background task
-        # This completely bypasses the need for Redis/Celery on local Windows!
         from src.workers.resume_tasks import _parse_resume_async
         import asyncio
-        asyncio.create_task(_parse_resume_async(resume_id))
+        asyncio.create_task(_parse_resume_async(resume_id, target_role, experience_level))
 
     return {"resume_id": resume_id, "status": "pending"}
 

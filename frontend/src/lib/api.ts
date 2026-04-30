@@ -64,6 +64,8 @@ export const interviewApi = {
   evaluateAnswer: (question: string, answer: string, role: string) => api.post("/interviews/evaluate", { question, answer, role }),
   replay: (interviewId: string, token: string) =>
     api.get(`/interviews/${interviewId}/replay`, { headers: { Authorization: `Bearer ${token}` } }),
+  list: (token: string) =>
+    api.get("/interviews/", { headers: { Authorization: `Bearer ${token}` } }),
 };
 
 export const platformApi = {
@@ -84,6 +86,15 @@ export const copilotApi = {
     api.post("/copilot/portfolio/ingest", { artifact_text: artifactText, source }, { headers: { Authorization: `Bearer ${token}` } }),
   evaluatePortfolio: (targetRole: string, token: string) =>
     api.post("/copilot/portfolio/evaluate", { target_role: targetRole }, { headers: { Authorization: `Bearer ${token}` } }),
+};
+
+export const analyticsApi = {
+  dashboard: (token: string, days = 30) =>
+    api.get(`/analytics/dashboard?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }),
+  skills: (token: string, days = 30) =>
+    api.get(`/analytics/skills?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }),
+  interviews: (token: string, days = 30) =>
+    api.get(`/analytics/interviews?days=${days}`, { headers: { Authorization: `Bearer ${token}` } }),
 };
 
 export const matchApi = {

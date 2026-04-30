@@ -37,10 +37,10 @@ GEMINI_DEFAULT_MODEL: str = GEMINI_MODELS[0]
 # ── OpenRouter fallback ───────────────────────────────────────────────────────
 OR_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 OR_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-OR_OPENROUTER_MODEL: str = os.getenv("OPENROUTER_DEFAULT_MODEL", "openai/gpt-4o-mini")
+OR_OPENROUTER_MODEL: str = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
 # ── Active provider ───────────────────────────────────────────────────────────
-_USE_GEMINI = bool(GOOGLE_API_KEY and GOOGLE_API_KEY != "placeholder")
+_USE_GEMINI = False  # Hardcoded to disable Gemini and force OpenRouter fallback
 OR_DEFAULT_MODEL: str = GEMINI_DEFAULT_MODEL if _USE_GEMINI else OR_OPENROUTER_MODEL
 _ACTIVE_API_KEY: str = GOOGLE_API_KEY if _USE_GEMINI else OR_API_KEY
 _ACTIVE_BASE_URL: str = GEMINI_BASE_URL if _USE_GEMINI else OR_BASE_URL

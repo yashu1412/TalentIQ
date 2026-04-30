@@ -86,15 +86,15 @@ async def analytics_dashboard(
 
     applications = (
         await db.execute(
-            select(func.count()).where(Application.user_id == user.id, Application.created_at >= current_start)
+            select(func.count()).where(Application.user_id == user.id, Application.updated_at >= current_start)
         )
     ).scalar() or 0
     applications_prev = (
         await db.execute(
             select(func.count()).where(
                 Application.user_id == user.id,
-                Application.created_at >= previous_start,
-                Application.created_at < current_start,
+                Application.updated_at >= previous_start,
+                Application.updated_at < current_start,
             )
         )
     ).scalar() or 0
@@ -113,6 +113,23 @@ async def analytics_dashboard(
             skill_gap_map[sk] = skill_gap_map.get(sk, 0) + 1
     top_gaps = sorted(skill_gap_map, key=lambda k: skill_gap_map[k], reverse=True)[:5]
 
+    # ATS Trend calculation
+    step_days = max(1, days // 6)
+    ats_trend = []
+    
+    r_res = await db.execute(select(Resume).where(Resume.user_id == user.id, Resume.created_at >= current_start))
+    all_resumes = r_res.scalars().all()
+    
+    for idx in range(6):
+        bucket_start = current_start + timedelta(days=idx * step_days)
+        bucket_end = now if idx == 5 else bucket_start + timedelta(days=step_days)
+        bucket_resumes = [r for r in all_resumes if r.created_at and r.created_at >= bucket_start and r.created_at < bucket_end]
+        avg = sum(r.ats_score or 0 for r in bucket_resumes) / max(1, len(bucket_resumes)) if bucket_resumes else 0
+        ats_trend.append({
+            "label": bucket_start.strftime("%b %d"),
+            "ats": round(avg, 1)
+        })
+
     return {
         "days": days,
         "resumes_uploaded": resumes,
@@ -120,6 +137,7 @@ async def analytics_dashboard(
         "mock_interviews_done": interviews,
         "applications_count": applications,
         "skill_gap_top5": top_gaps,
+        "ats_trend": ats_trend,
         "trends": {
             "resumes_uploaded": _delta_block(float(resumes), float(resumes_prev)),
             "avg_ats_score": _delta_block(float(avg_ats or 0), float(avg_ats_prev or 0)),
@@ -197,19 +215,17 @@ async def analytics_interviews(
     for idx in range(6):
         bucket_start = current_start + timedelta(days=idx * step_days)
         bucket_end = now if idx == 5 else bucket_start + timedelta(days=step_days)
-        count = len(
-            [
-                i
-                for i in interviews
-                if i.created_at
-                and i.created_at >= bucket_start
-                and i.created_at < bucket_end
-            ]
-        )
+        bucket_interviews = [
+            i for i in interviews
+            if i.created_at and i.created_at >= bucket_start and i.created_at < bucket_end
+        ]
+        count = len(bucket_interviews)
+        b_avg = sum(i.overall_score or 0 for i in bucket_interviews) / max(1, count) if count > 0 else 0
         trend.append(
             {
                 "label": bucket_start.strftime("%b %d"),
                 "count": count,
+                "score": round(b_avg, 1),
             }
         )
 

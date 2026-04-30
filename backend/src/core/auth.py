@@ -45,10 +45,12 @@ async def get_current_user(
                 issuer=CLERK_JWT_ISSUER or None,
             )
         elif ALLOW_INSECURE_JWT_DECODE or APP_ENV != "production":
+            # In local dev: skip both signature AND expiry checks so a slightly
+            # stale Clerk token (e.g. during a polling loop) doesn't cause 401.
             payload = jwt.decode(
                 token,
                 "",
-                options={"verify_signature": False, "verify_exp": True, "verify_aud": False},
+                options={"verify_signature": False, "verify_exp": False, "verify_aud": False},
             )
         else:
             raise HTTPException(
