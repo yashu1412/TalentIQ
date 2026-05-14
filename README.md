@@ -359,7 +359,7 @@ NEXT_PUBLIC_STREAM_API_KEY=your_stream_key
 
 ```bash
 # Clone the repo
-git clone https://github.com/yashu1412/TaltRoom-AI.git
+git clone https://github.com/yashu1412/TalentIQ.git
 cd TaltRoom-AI
 
 # Frontend
