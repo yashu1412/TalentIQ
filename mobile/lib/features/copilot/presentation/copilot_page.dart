@@ -1,26 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/theme/tiq_theme.dart';
 import '../../../shared/widgets/tiq_widgets.dart';
+import 'copilot_controller.dart';
 
-class CopilotPage extends StatefulWidget {
+class CopilotPage extends ConsumerStatefulWidget {
   const CopilotPage({super.key, this.initialCompany, this.initialRole});
   final String? initialCompany;
   final String? initialRole;
 
   @override
-  State<CopilotPage> createState() => _CopilotPageState();
+  ConsumerState<CopilotPage> createState() => _CopilotPageState();
 }
 
-class _CopilotPageState extends State<CopilotPage> {
+class _CopilotPageState extends ConsumerState<CopilotPage> {
   final _messageController = TextEditingController();
+  final _scrollController = ScrollController();
 
-  Widget _buildChatBubble(String text, bool isUser) {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialCompany != null && widget.initialRole != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(copilotControllerProvider.notifier).sendMessage(
+            'Help me prepare for an interview at ${widget.initialCompany} for the ${widget.initialRole} role.');
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _send() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    _messageController.clear();
+    await ref.read(copilotControllerProvider.notifier).sendMessage(text);
+    _scrollToBottom();
+  }
+
+  Widget _buildChatBubble(ChatMessage msg) {
+    final isUser = msg.isUser;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
         decoration: BoxDecoration(
           color: isUser ? TIQColors.primary : TIQColors.bgCard,
           borderRadius: BorderRadius.circular(16).copyWith(
@@ -30,11 +72,12 @@ class _CopilotPageState extends State<CopilotPage> {
           border: isUser ? null : Border.all(color: TIQColors.borderDefault),
         ),
         child: Text(
-          text,
+          msg.content,
           style: TextStyle(
             color: isUser ? Colors.white : TIQColors.textPrimary,
             fontSize: 14,
             height: 1.5,
+            fontFamily: 'Inter',
           ),
         ),
       ),
@@ -43,6 +86,11 @@ class _CopilotPageState extends State<CopilotPage> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(copilotControllerProvider);
+
+    // Auto-scroll when messages update
+    ref.listen(copilotControllerProvider, (_, __) => _scrollToBottom());
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -62,20 +110,41 @@ class _CopilotPageState extends State<CopilotPage> {
       ),
       body: Column(
         children: [
+          // Chat messages
           Expanded(
-            child: ListView(
+            child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(20),
-              children: [
-                Center(
-                  child: TIQBadge('Today', color: TIQColors.textDim),
-                ),
-                const SizedBox(height: 24),
-                _buildChatBubble('Hello Alex! I am your AI Career Copilot. How can I help you today? You can ask me to draft cover letters, simulate interview questions, or negotiate salaries.', false),
-                _buildChatBubble('Can you review my recent resume upload for Google?', true),
-                _buildChatBubble('Absolutely. I see your resume has a strong focus on distributed systems, which aligns perfectly with Google. However, I noticed you are missing GCP and Kubernetes keywords. I recommend adding your cloud migration project specifically to highlight this. Want me to draft a bullet point?', false),
-              ],
+              itemCount: state.messages.length + (state.sending ? 1 : 0),
+              itemBuilder: (ctx, i) {
+                if (i == state.messages.length) {
+                  // Typing indicator
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: TIQColors.bgCard,
+                        borderRadius: BorderRadius.circular(16).copyWith(bottomLeft: Radius.zero),
+                        border: Border.all(color: TIQColors.borderDefault),
+                      ),
+                      child: const SizedBox(
+                        width: 40,
+                        child: LinearProgressIndicator(
+                          color: TIQColors.primary,
+                          backgroundColor: TIQColors.borderDefault,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return _buildChatBubble(state.messages[i]);
+              },
             ),
           ),
+
+          // Input bar
           Container(
             padding: const EdgeInsets.all(16).copyWith(bottom: 32),
             decoration: const BoxDecoration(
@@ -87,8 +156,9 @@ class _CopilotPageState extends State<CopilotPage> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
+                    onSubmitted: (_) => _send(),
                     decoration: InputDecoration(
-                      hintText: 'Ask your copilot...',
+                      hintText: 'Ask your copilot…',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
@@ -103,19 +173,25 @@ class _CopilotPageState extends State<CopilotPage> {
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: TIQColors.primary,
+                    color: state.sending ? TIQColors.textDim : TIQColors.primary,
                     boxShadow: [
                       BoxShadow(color: TIQColors.primary.withOpacity(0.4), blurRadius: 10),
                     ],
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                    onPressed: () {},
+                    icon: state.sending
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    onPressed: state.sending ? null : _send,
                   ),
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

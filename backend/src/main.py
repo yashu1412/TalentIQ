@@ -68,12 +68,19 @@ app = FastAPI(
 
 _DEV_ENV = os.getenv("APP_ENV", os.getenv("ENV", "development")).lower() != "production"
 
+# ALLOWED_ORIGINS: comma-separated list of allowed frontend URLs.
+# In dev mode defaults to ["*"]; in production, must be set explicitly.
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_ALLOWED_ORIGINS: list[str] = (
+    ["*"]
+    if _DEV_ENV
+    else [o.strip() for o in _raw_origins.split(",") if o.strip()]
+         or ["https://talentiq.vercel.app"]  # safe default if var is missing
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if _DEV_ENV else [
-        "https://talentiq.app",
-        "https://www.talentiq.app",
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=not _DEV_ENV,  # credentials + wildcard origin is not allowed by browsers
     allow_methods=["*"],
     allow_headers=["*"],

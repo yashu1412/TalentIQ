@@ -2,82 +2,233 @@ import re
 
 ROLE_SKILLS = {
     "Software Engineer": {
-        "must_have": ["python", "javascript", "git", "sql", "html", "css", "api"],
-        "good_to_have": ["docker", "react", "fastapi", "node", "typescript", "testing"],
-        "bonus": ["kubernetes", "ci/cd", "microservices", "graphql"],
-        "soft_skills": ["communication", "agile", "problem solving"],
+        "must_have": [
+            "python", "javascript", "git", "sql", "html", "css", "api", "rest",
+            "data structures", "algorithms", "object oriented",
+        ],
+        "good_to_have": [
+            "docker", "react", "fastapi", "node", "typescript", "testing",
+            "postgresql", "redis", "linux", "bash", "json", "http",
+            "unit testing", "debugging", "version control",
+        ],
+        "bonus": [
+            "kubernetes", "ci/cd", "microservices", "graphql", "kafka",
+            "aws", "gcp", "azure", "system design", "websocket",
+        ],
+        "soft_skills": ["communication", "agile", "problem solving", "teamwork"],
     },
     "Frontend Developer": {
-        "must_have": ["html", "css", "javascript"],
-        "good_to_have": ["react", "next.js", "typescript", "redux"],
-        "bonus": ["three.js", "webgl", "framer motion", "gsap"],
-        "soft_skills": ["communication", "teamwork"],
+        "must_have": [
+            "html", "css", "javascript", "git",
+        ],
+        "good_to_have": [
+            "react", "next.js", "typescript", "redux", "zustand",
+            "tailwind", "vite", "api", "framer motion", "animation", "cross-browser", "optimization",
+        ],
+        "bonus": [
+            "three.js", "webgl", "gsap", "react native",
+            "storybook", "cypress", "playwright", "web components",
+            "pwa", "webassembly", "seo", "accessibility", "webpack", "scss",
+        ],
+        "soft_skills": ["communication", "teamwork", "attention to detail"],
     },
     "Backend Developer": {
-        "must_have": ["python", "sql", "api", "rest"],
-        "good_to_have": ["docker", "fastapi", "node", "postgresql", "redis"],
-        "bonus": ["kubernetes", "kafka", "graphql", "microservices"],
-        "soft_skills": ["leadership", "problem solving"],
+        "must_have": [
+            "python", "sql", "api", "rest", "git", "linux",
+            "database", "authentication",
+        ],
+        "good_to_have": [
+            "docker", "fastapi", "node", "postgresql", "redis",
+            "mongodb", "jwt", "orm", "express", "django",
+            "celery", "message queue", "caching", "indexing",
+        ],
+        "bonus": [
+            "kubernetes", "kafka", "graphql", "microservices",
+            "grpc", "websocket", "elasticsearch", "aws",
+            "rate limiting", "load balancing",
+        ],
+        "soft_skills": ["leadership", "problem solving", "system design"],
+    },
+    "Full Stack Developer": {
+        "must_have": [
+            "javascript", "html", "css", "sql", "git", "api", "rest",
+        ],
+        "good_to_have": [
+            "react", "next.js", "node", "python", "typescript",
+            "postgresql", "mongodb", "docker", "jwt", "redux",
+            "express", "tailwind", "graphql",
+        ],
+        "bonus": [
+            "kubernetes", "aws", "ci/cd", "websocket", "redis",
+            "microservices", "kafka", "prisma",
+        ],
+        "soft_skills": ["communication", "agile", "problem solving"],
     },
     "Data Scientist": {
-        "must_have": ["python", "pandas", "numpy", "sql", "statistics"],
-        "good_to_have": ["scikit-learn", "tensorflow", "pytorch", "matplotlib", "jupyter"],
-        "bonus": ["spark", "mlflow", "airflow", "deep learning"],
-        "soft_skills": ["communication", "storytelling"],
+        "must_have": [
+            "python", "pandas", "numpy", "sql", "statistics",
+            "data analysis", "visualization",
+        ],
+        "good_to_have": [
+            "scikit-learn", "tensorflow", "pytorch", "matplotlib",
+            "jupyter", "seaborn", "plotly", "feature engineering",
+            "regression", "classification", "clustering",
+        ],
+        "bonus": [
+            "spark", "mlflow", "airflow", "deep learning",
+            "nlp", "computer vision", "time series", "a/b testing",
+        ],
+        "soft_skills": ["communication", "storytelling", "critical thinking"],
     },
     "Machine Learning Engineer": {
-        "must_have": ["python", "pytorch", "tensorflow", "scikit-learn", "sql"],
-        "good_to_have": ["mlflow", "docker", "fastapi", "aws", "transformers"],
-        "bonus": ["cuda", "onnx", "triton", "hugging face", "rlhf"],
-        "soft_skills": ["research", "communication"],
+        "must_have": [
+            "python", "pytorch", "tensorflow", "scikit-learn", "sql",
+            "linear algebra", "probability",
+        ],
+        "good_to_have": [
+            "mlflow", "docker", "fastapi", "aws", "transformers",
+            "hugging face", "model deployment", "feature store",
+            "data pipeline", "vector database",
+        ],
+        "bonus": [
+            "cuda", "onnx", "triton", "rlhf", "langchain",
+            "ray", "dask", "quantization", "lora", "fine-tuning",
+        ],
+        "soft_skills": ["research", "communication", "experimentation"],
     },
     "DevOps Engineer": {
-        "must_have": ["linux", "docker", "ci/cd", "git", "bash"],
-        "good_to_have": ["kubernetes", "terraform", "ansible", "aws", "prometheus"],
-        "bonus": ["argocd", "helm", "istio", "grafana", "ebpf"],
-        "soft_skills": ["automation", "problem solving"],
+        "must_have": [
+            "linux", "docker", "ci/cd", "git", "bash",
+            "networking", "scripting",
+        ],
+        "good_to_have": [
+            "kubernetes", "terraform", "ansible", "aws", "prometheus",
+            "github actions", "jenkins", "nginx", "logging", "monitoring",
+        ],
+        "bonus": [
+            "argocd", "helm", "istio", "grafana", "ebpf",
+            "vault", "pulumi", "chaos engineering",
+        ],
+        "soft_skills": ["automation", "problem solving", "reliability"],
     },
     "Cloud Architect": {
-        "must_have": ["aws", "cloud", "networking", "iam", "terraform"],
-        "good_to_have": ["kubernetes", "docker", "ci/cd", "security", "monitoring"],
-        "bonus": ["multi-cloud", "finops", "zero trust", "sre"],
-        "soft_skills": ["architecture", "communication"],
+        "must_have": [
+            "aws", "cloud", "networking", "iam", "terraform",
+            "security", "storage",
+        ],
+        "good_to_have": [
+            "kubernetes", "docker", "ci/cd", "monitoring",
+            "lambda", "s3", "vpc", "rds", "cloudwatch",
+        ],
+        "bonus": [
+            "multi-cloud", "finops", "zero trust", "sre",
+            "chaos engineering", "service mesh", "waf",
+        ],
+        "soft_skills": ["architecture", "communication", "cost optimization"],
     },
     "Cybersecurity Analyst": {
-        "must_have": ["networking", "linux", "python", "security", "owasp"],
-        "good_to_have": ["siem", "penetration testing", "cryptography", "firewall", "incident response"],
-        "bonus": ["metasploit", "wireshark", "splunk", "mitre att&ck"],
-        "soft_skills": ["analytical thinking", "communication"],
+        "must_have": [
+            "networking", "linux", "python", "security", "owasp",
+            "vulnerability assessment",
+        ],
+        "good_to_have": [
+            "siem", "penetration testing", "cryptography", "firewall",
+            "incident response", "nmap", "burp suite", "kali linux",
+        ],
+        "bonus": [
+            "metasploit", "wireshark", "splunk", "mitre att&ck",
+            "reverse engineering", "malware analysis", "threat hunting",
+        ],
+        "soft_skills": ["analytical thinking", "communication", "attention to detail"],
     },
     "Product Manager": {
-        "must_have": ["product", "agile", "sql", "analytics", "roadmap"],
-        "good_to_have": ["figma", "jira", "a/b testing", "okr", "user research"],
-        "bonus": ["data science", "growth", "api", "stakeholder management"],
-        "soft_skills": ["leadership", "communication", "strategy"],
+        "must_have": [
+            "product", "agile", "sql", "analytics", "roadmap",
+            "stakeholders", "user stories",
+        ],
+        "good_to_have": [
+            "figma", "jira", "a/b testing", "okr", "user research",
+            "confluence", "metrics", "kpi", "sprint", "backlog",
+        ],
+        "bonus": [
+            "data science", "growth", "api", "stakeholder management",
+            "go-to-market", "competitive analysis", "pricing",
+        ],
+        "soft_skills": ["leadership", "communication", "strategy", "empathy"],
     },
     "UX Designer": {
-        "must_have": ["figma", "user research", "wireframing", "prototyping", "usability"],
-        "good_to_have": ["design systems", "accessibility", "html", "css", "sketch"],
-        "bonus": ["motion design", "framer", "ux writing", "3d"],
-        "soft_skills": ["empathy", "communication", "creativity"],
+        "must_have": [
+            "figma", "user research", "wireframing", "prototyping", "usability",
+        ],
+        "good_to_have": [
+            "design systems", "accessibility", "html", "css", "sketch",
+            "user testing", "information architecture", "heuristics",
+        ],
+        "bonus": [
+            "motion design", "framer", "ux writing", "3d",
+            "adobe xd", "lottie", "after effects",
+        ],
+        "soft_skills": ["empathy", "communication", "creativity", "storytelling"],
+    },
+    "Android Developer": {
+        "must_have": [
+            "kotlin", "android", "java", "xml", "git",
+        ],
+        "good_to_have": [
+            "jetpack compose", "mvvm", "retrofit", "room", "coroutines",
+            "hilt", "navigation component", "firebase", "rest api",
+        ],
+        "bonus": [
+            "flutter", "kotlin multiplatform", "work manager",
+            "custom views", "ndk", "play store publishing",
+        ],
+        "soft_skills": ["attention to detail", "problem solving"],
+    },
+    "iOS Developer": {
+        "must_have": [
+            "swift", "ios", "xcode", "uikit", "git",
+        ],
+        "good_to_have": [
+            "swiftui", "combine", "coredata", "alamofire",
+            "mvvm", "rest api", "firebase", "cocoapods",
+        ],
+        "bonus": [
+            "flutter", "react native", "arkit", "metal",
+            "app store publishing", "push notifications",
+        ],
+        "soft_skills": ["attention to detail", "problem solving"],
+    },
+    "Blockchain Developer": {
+        "must_have": [
+            "solidity", "ethereum", "smart contracts", "web3", "javascript",
+        ],
+        "good_to_have": [
+            "hardhat", "truffle", "react", "ethers.js", "ipfs",
+            "metamask", "defi", "erc20", "erc721",
+        ],
+        "bonus": [
+            "rust", "solana", "polkadot", "zero knowledge",
+            "layer2", "chainlink", "dao",
+        ],
+        "soft_skills": ["problem solving", "research"],
     },
     # Legacy snake_case keys — kept for backward compatibility
     "fullstack_developer": {
         "must_have": ["javascript", "react", "python", "node", "sql", "html", "css"],
-        "good_to_have": ["docker", "aws", "typescript", "next.js"],
-        "bonus": ["kubernetes", "graphql", "ci/cd"],
+        "good_to_have": ["docker", "aws", "typescript", "next.js", "postgresql", "mongodb"],
+        "bonus": ["kubernetes", "graphql", "ci/cd", "redis", "websocket"],
         "soft_skills": ["communication", "agile"],
     },
     "frontend_developer": {
         "must_have": ["html", "css", "javascript"],
-        "good_to_have": ["react", "next.js", "redux"],
-        "bonus": ["three.js", "webgl"],
+        "good_to_have": ["react", "next.js", "typescript", "redux", "zustand", "tailwind"],
+        "bonus": ["three.js", "webgl", "framer motion", "gsap", "storybook"],
         "soft_skills": ["communication", "teamwork"],
     },
     "backend_developer": {
-        "must_have": ["python", "java", "node", "sql", "api"],
-        "good_to_have": ["docker", "kubernetes", "aws", "gcp", "fastapi"],
-        "bonus": ["rust", "go", "graphql", "microservices"],
+        "must_have": ["python", "sql", "api", "rest", "git"],
+        "good_to_have": ["docker", "postgresql", "redis", "fastapi", "node", "jwt", "orm"],
+        "bonus": ["kubernetes", "kafka", "graphql", "microservices", "elasticsearch"],
         "soft_skills": ["leadership", "problem solving"],
     },
 }
@@ -254,7 +405,8 @@ def experience_score(projects, years, level):
         level = "fresher"  # fallback
     weights = EXPERIENCE_WEIGHTS[level]
 
-    project_score = min(projects / 5, 1) * 100
+    # 3+ projects = perfect project score (realistic bar for students/freshers)
+    project_score = min(projects / 3, 1) * 100
     exp_score = min(years / 5, 1) * 100
 
     final = (

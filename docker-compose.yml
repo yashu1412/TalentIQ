@@ -1,3 +1,7 @@
+# ── docker-compose.yml — LOCAL DEVELOPMENT ───────────────────────────────────
+# For production, use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
   postgres:
     image: ankane/pgvector:latest
@@ -14,6 +18,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -22,6 +27,9 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
   piston:
     image: ghcr.io/engineer-man/piston
@@ -32,6 +40,7 @@ services:
       - PISTON_COMPILE_TIMEOUT=10000
     volumes:
       - piston_data:/piston/packages
+    restart: unless-stopped
 
   backend:
     build:
@@ -46,8 +55,16 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend:/app
+      - ./backend:/app           # hot-reload in dev
+    # Use uvicorn directly with --reload for local dev (gunicorn is used in prod)
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
   worker:
     build:
@@ -60,8 +77,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
+    restart: unless-stopped
 
   beat:
     build:
@@ -71,8 +87,7 @@ services:
     command: celery -A src.workers.celery_app beat --loglevel=info
     depends_on:
       - redis
-    volumes:
-      - ./backend:/app
+    restart: unless-stopped
 
   frontend:
     build:
@@ -82,12 +97,17 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
 
 volumes:
   postgres_data:
   piston_data:
+

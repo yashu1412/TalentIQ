@@ -24,15 +24,32 @@ class ResumeRepository {
     }
   }
 
-  Future<Map<String, dynamic>> uploadResume(String filePath) async {
+  Future<Map<String, dynamic>> uploadResume(String? filePath, {List<int>? bytes, String? fileName}) async {
     try {
-      final file = File(filePath);
-      final fileName = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : 'resume.pdf';
-      final formData = FormData.fromMap(
-        {
-          'file': await MultipartFile.fromFile(file.path, filename: fileName, contentType: DioMediaType('application', 'pdf')),
-        },
-      );
+      late MultipartFile multipartFile;
+      final name = fileName ?? 'resume.pdf';
+
+      if (bytes != null) {
+        // Flutter Web: no file path, use bytes directly
+        multipartFile = MultipartFile.fromBytes(
+          bytes,
+          filename: name,
+          contentType: DioMediaType('application', 'pdf'),
+        );
+      } else if (filePath != null) {
+        // Native mobile: use the file path
+        final file = File(filePath);
+        final n = file.uri.pathSegments.isNotEmpty ? file.uri.pathSegments.last : name;
+        multipartFile = await MultipartFile.fromFile(
+          file.path,
+          filename: n,
+          contentType: DioMediaType('application', 'pdf'),
+        );
+      } else {
+        throw ApiException('No file data provided', statusCode: null);
+      }
+
+      final formData = FormData.fromMap({'file': multipartFile});
       final response = await _dio.post('/resumes/upload', data: formData);
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {

@@ -1,0 +1,30 @@
+# ── docker-compose.prod.yml — PRODUCTION OVERRIDES ──────────────────────────
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# This file overrides dev-specific settings with production-safe equivalents.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  # Postgres and Redis are typically hosted externally in production
+  # (Supabase / Railway Redis / Upstash). Remove those services from
+  # docker-compose.yml if you use external providers, or keep them here.
+
+  backend:
+    # Remove hot-reload volume mount — image contains the final code
+    volumes: []
+    # Use gunicorn (already defined as CMD in Dockerfile); override env for prod
+    command: []
+    environment:
+      APP_ENV: production
+      ALLOW_INSECURE_JWT_DECODE: "false"
+
+  worker:
+    volumes: []
+
+  beat:
+    volumes: []
+
+  frontend:
+    # Remove dev volume mounts
+    volumes: []
+    environment:
+      NODE_ENV: production
