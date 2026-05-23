@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/copilot_repository.dart';
 import 'package:dio/dio.dart';
 import 'dart:convert' as dart_convert;
 import '../../../core/network/api_client.dart';
@@ -44,9 +43,9 @@ class CopilotState {
 
 final _chatDioProvider = Provider<Dio>((ref) => ref.read(dioProvider));
 
-class _ChatRepo {
+class ChatRepo {
   final Dio _dio;
-  _ChatRepo(this._dio);
+  ChatRepo(this._dio);
 
   Future<String> chat(String message, List<Map<String, String>> history) async {
     try {
@@ -98,8 +97,8 @@ class _ChatRepo {
   }
 }
 
-final _chatRepoProvider = Provider<_ChatRepo>(
-  (ref) => _ChatRepo(ref.read(_chatDioProvider)),
+final _chatRepoProvider = Provider<ChatRepo>(
+  (ref) => ChatRepo(ref.read(_chatDioProvider)),
 );
 
 // ─── Controller ───────────────────────────────────────────────────────────────
@@ -110,7 +109,7 @@ final copilotControllerProvider =
 );
 
 class CopilotController extends StateNotifier<CopilotState> {
-  final _ChatRepo _repo;
+  final ChatRepo _repo;
 
   CopilotController(this._repo)
       : super(
@@ -147,7 +146,7 @@ class CopilotController extends StateNotifier<CopilotState> {
         sending: false,
       );
     } catch (e) {
-      final errorMsg = ChatMessage(
+      const errorMsg = ChatMessage(
         content: 'Sorry, I encountered an error. Please try again.',
         isUser: false,
       );

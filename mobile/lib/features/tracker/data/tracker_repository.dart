@@ -23,7 +23,7 @@ class TrackerRepository {
       final rawData = (response.data as List).cast<Map<String, dynamic>>();
       await _cache.writeJson('tracker_applications', rawData);
       final data = rawData
-          .map((e) => ApplicationItem.fromJson(e as Map<String, dynamic>))
+          .map((e) => ApplicationItem.fromJson(e))
           .toList();
       return data;
     } on DioException catch (e) {

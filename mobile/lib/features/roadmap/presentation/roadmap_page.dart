@@ -32,7 +32,7 @@ class RoadmapPage extends StatelessWidget {
               Container(
                 width: 2,
                 height: 60,
-                color: isCompleted ? TIQColors.primary.withOpacity(0.5) : TIQColors.borderDefault,
+                color: isCompleted ? TIQColors.primary.withValues(alpha: 0.5) : TIQColors.borderDefault,
               ),
             ],
           ),
@@ -47,7 +47,7 @@ class RoadmapPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Week $week', style: TIQTextStyles.labelSmall),
-                      if (isCompleted) TIQBadge('Done', color: TIQColors.green),
+                      if (isCompleted) const TIQBadge('Done', color: TIQColors.green),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -75,7 +75,7 @@ class RoadmapPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('12-Week Prep:', style: TIQTextStyles.bodyLarge),
+            const Text('12-Week Prep:', style: TIQTextStyles.bodyLarge),
             Text(role, style: TIQTextStyles.displayMedium),
             const SizedBox(height: 32),
             

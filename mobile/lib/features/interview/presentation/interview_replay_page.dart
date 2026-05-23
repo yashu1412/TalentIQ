@@ -53,7 +53,7 @@ class InterviewReplayPage extends ConsumerWidget {
                             children: [
                               CircleAvatar(
                                 radius: 14,
-                                backgroundColor: _scoreColor(score).withOpacity(0.12),
+                                backgroundColor: _scoreColor(score).withValues(alpha: 0.12),
                                 child: Text(
                                   '${item['sequence'] ?? '-'}',
                                   style: TextStyle(color: _scoreColor(score), fontWeight: FontWeight.w700),

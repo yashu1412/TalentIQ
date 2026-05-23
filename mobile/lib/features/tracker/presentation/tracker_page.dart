@@ -84,14 +84,14 @@ class TrackerPage extends ConsumerWidget {
                         ),
                       )
                     : state.filtered.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.work_outline, size: 60, color: TIQColors.borderDefault),
-                                const SizedBox(height: 16),
-                                const Text('No applications yet', style: TIQTextStyles.titleLarge),
-                                const SizedBox(height: 8),
+                                Icon(Icons.work_outline, size: 60, color: TIQColors.borderDefault),
+                                SizedBox(height: 16),
+                                Text('No applications yet', style: TIQTextStyles.titleLarge),
+                                SizedBox(height: 8),
                                 Text('Tap + to add your first application', style: TIQTextStyles.bodyMedium),
                               ],
                             ),
@@ -143,9 +143,9 @@ class TrackerPage extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Icon(Icons.swap_horiz, size: 14, color: TIQColors.textDim),
+              const Icon(Icons.swap_horiz, size: 14, color: TIQColors.textDim),
               const SizedBox(width: 4),
-              Text('Move to:', style: TIQTextStyles.bodyMedium),
+              const Text('Move to:', style: TIQTextStyles.bodyMedium),
               const SizedBox(width: 8),
               Expanded(
                 child: SingleChildScrollView(
@@ -159,9 +159,9 @@ class TrackerPage extends ConsumerWidget {
                                 margin: const EdgeInsets.only(right: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: _colorForStatus(s).withOpacity(0.1),
+                                  color: _colorForStatus(s).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: _colorForStatus(s).withOpacity(0.3)),
+                                  border: Border.all(color: _colorForStatus(s).withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   _labelFor(s),

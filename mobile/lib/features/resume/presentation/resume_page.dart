@@ -52,7 +52,7 @@ class ResumePage extends ConsumerWidget {
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: TIQColors.teal.withOpacity(0.15),
+                        color: TIQColors.teal.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -64,7 +64,7 @@ class ResumePage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Upload Your Resume', style: TIQTextStyles.displayMedium),
+                    const Text('Upload Your Resume', style: TIQTextStyles.displayMedium),
                     const SizedBox(height: 8),
                     Text(
                       state.status == ResumeStatus.uploading
@@ -87,9 +87,9 @@ class ResumePage extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: TIQColors.rose.withOpacity(0.1),
+                          color: TIQColors.rose.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: TIQColors.rose.withOpacity(0.3)),
+                          border: Border.all(color: TIQColors.rose.withValues(alpha: 0.3)),
                         ),
                         child: Text(
                           state.error!,
@@ -106,7 +106,7 @@ class ResumePage extends ConsumerWidget {
 
               // Resume Insights
               if (resume != null) ...[
-                SectionLabel('CURRENT RESUME INSIGHTS'),
+                const SectionLabel('CURRENT RESUME INSIGHTS'),
                 const SizedBox(height: 16),
 
                 GlassCard(
@@ -138,7 +138,7 @@ class ResumePage extends ConsumerWidget {
 
                 if (skills.isNotEmpty) ...[
                   const SizedBox(height: 24),
-                  SectionLabel('DETECTED SKILLS'),
+                  const SectionLabel('DETECTED SKILLS'),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -147,15 +147,15 @@ class ResumePage extends ConsumerWidget {
                   ),
                 ],
               ] else ...[
-                SectionLabel('CURRENT RESUME INSIGHTS'),
+                const SectionLabel('CURRENT RESUME INSIGHTS'),
                 const SizedBox(height: 16),
-                GlassCard(
+                const GlassCard(
                   child: Column(
                     children: [
                       Icon(Icons.description_outlined, size: 48, color: TIQColors.borderDefault),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Text('No resume uploaded yet', style: TIQTextStyles.titleLarge),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text('Upload your PDF to get your ATS score.', style: TIQTextStyles.bodyMedium),
                     ],
                   ),

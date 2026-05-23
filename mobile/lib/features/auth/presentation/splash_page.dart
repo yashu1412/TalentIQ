@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../shared/theme/tiq_theme.dart';
-import '../../../shared/widgets/tiq_widgets.dart';
 import 'auth_controller.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -60,7 +58,7 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: TIQColors.primary.withOpacity(0.15),
+                color: TIQColors.primary.withValues(alpha: 0.15),
               ),
             ),
           ),
@@ -83,7 +81,7 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
-                                color: TIQColors.primary.withOpacity(0.4),
+                                color: TIQColors.primary.withValues(alpha: 0.4),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                               ),
@@ -94,7 +92,7 @@ class _SplashPageState extends ConsumerState<SplashPage> with SingleTickerProvid
                         const SizedBox(height: 24),
                         const Text('TalentIQ', style: TIQTextStyles.displayLarge),
                         const SizedBox(height: 8),
-                        Text('Your AI Career Copilot', style: TIQTextStyles.bodyMedium),
+                        const Text('Your AI Career Copilot', style: TIQTextStyles.bodyMedium),
                         const SizedBox(height: 60),
                         const SizedBox(
                           width: 40,

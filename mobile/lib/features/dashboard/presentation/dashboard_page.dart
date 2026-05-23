@@ -19,9 +19,9 @@ class DashboardPage extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withOpacity(0.3)),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
               ),
               child: Icon(icon, color: color, size: 24),
             ),
@@ -58,7 +58,7 @@ class DashboardPage extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                    boxShadow: [
                     BoxShadow(
-                      color: TIQColors.primary.withOpacity(0.3),
+                      color: TIQColors.primary.withValues(alpha: 0.3),
                       blurRadius: 8,
                     )
                    ]
@@ -107,7 +107,7 @@ class DashboardPage extends ConsumerWidget {
                           style: TIQTextStyles.bodyMedium.copyWith(color: TIQColors.textPrimary),
                         ),
                         const SizedBox(height: 16),
-                        TIQBadge('Update Resume', color: TIQColors.violet),
+                        const TIQBadge('Update Resume', color: TIQColors.violet),
                       ],
                     ),
                   ),

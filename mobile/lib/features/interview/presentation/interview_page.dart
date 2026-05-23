@@ -59,8 +59,8 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
                 height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: TIQColors.violet.withOpacity(0.1),
-                  border: Border.all(color: TIQColors.violet.withOpacity(0.3), width: 2),
+                  color: TIQColors.violet.withValues(alpha: 0.1),
+                  border: Border.all(color: TIQColors.violet.withValues(alpha: 0.3), width: 2),
                 ),
                 child: const Icon(Icons.mic_none_rounded, size: 60, color: TIQColors.violet),
               ),
@@ -78,19 +78,19 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SectionLabel('Role'),
+                  const SectionLabel('Role'),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: state.selectedRole,
+                    initialValue: state.selectedRole,
                     decoration: const InputDecoration(isDense: true),
                     items: roles.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                     onChanged: (val) { if (val != null) ctrl.setRole(val); },
                   ),
                   const SizedBox(height: 16),
-                  SectionLabel('Round Type'),
+                  const SectionLabel('Round Type'),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: state.selectedRound,
+                    initialValue: state.selectedRound,
                     decoration: const InputDecoration(isDense: true),
                     items: rounds.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
                     onChanged: (val) { if (val != null) ctrl.setRound(val); },
@@ -187,7 +187,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
             ),
 
             const SizedBox(height: 20),
-            SectionLabel('YOUR ANSWER'),
+            const SectionLabel('YOUR ANSWER'),
             const SizedBox(height: 12),
 
             Expanded(
@@ -273,14 +273,14 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
 
             if (feedback.isNotEmpty) ...[
               const SizedBox(height: 20),
-              SectionLabel('AI COACHING'),
+              const SectionLabel('AI COACHING'),
               const SizedBox(height: 12),
               GlassCard(child: Text(feedback, style: TIQTextStyles.bodyMedium.copyWith(height: 1.6))),
             ],
 
             if (questions.isNotEmpty) ...[
               const SizedBox(height: 20),
-              SectionLabel('QUESTION BREAKDOWN'),
+              const SectionLabel('QUESTION BREAKDOWN'),
               const SizedBox(height: 12),
               ...questions.asMap().entries.map((entry) {
                 final i = entry.key;

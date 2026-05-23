@@ -46,7 +46,7 @@ class ResumeRepository {
           contentType: DioMediaType('application', 'pdf'),
         );
       } else {
-        throw ApiException('No file data provided', statusCode: null);
+        throw const ApiException('No file data provided', statusCode: null);
       }
 
       final formData = FormData.fromMap({'file': multipartFile});

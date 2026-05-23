@@ -26,7 +26,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _loginWithClerk() async {
-    final authUrl = AppEnv.clerkSignInUrl;
+    const authUrl = AppEnv.clerkSignInUrl;
 
     if (kIsWeb) {
       // On Web, internal WebViews are unreliable/blocked. Open in new tab.
@@ -46,10 +46,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (token != null && mounted) {
       try {
         await ref.read(authControllerProvider.notifier).signInWithToken(token);
+        if (!mounted) return;
         if (ref.read(authControllerProvider).authenticated) {
           context.go('/dashboard');
         }
       } catch (e) {
+        if (!mounted) return;
         _showError('Login failed: ${e.toString()}');
       }
     }
@@ -101,9 +103,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: TIQColors.primary.withOpacity(0.1),
+              color: TIQColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: TIQColors.primary.withOpacity(0.2)),
+              border: Border.all(color: TIQColors.primary.withValues(alpha: 0.2)),
             ),
             child: Icon(icon, color: TIQColors.primary, size: 24),
           ),
@@ -139,8 +141,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: TIQColors.primary.withOpacity(0.1),
-                boxShadow: [BoxShadow(color: TIQColors.primary.withOpacity(0.1), blurRadius: 100, spreadRadius: 50)],
+                color: TIQColors.primary.withValues(alpha: 0.1),
+                boxShadow: [BoxShadow(color: TIQColors.primary.withValues(alpha: 0.1), blurRadius: 100, spreadRadius: 50)],
               ),
             ),
           ),
@@ -158,14 +160,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     decoration: BoxDecoration(
                       color: TIQColors.primary,
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [BoxShadow(color: TIQColors.primary.withOpacity(0.4), blurRadius: 10)],
+                      boxShadow: [BoxShadow(color: TIQColors.primary.withValues(alpha: 0.4), blurRadius: 10)],
                     ),
                     child: const Icon(Icons.bolt, color: Colors.white, size: 30),
                   ),
                   const SizedBox(height: 24),
                   const Text('Welcome to TalentIQ', style: TIQTextStyles.displayLarge),
                   const SizedBox(height: 8),
-                  Text('Your AI Career Copilot in your pocket.', style: TIQTextStyles.bodyLarge),
+                  const Text('Your AI Career Copilot in your pocket.', style: TIQTextStyles.bodyLarge),
                   const SizedBox(height: 48),
                   
                   // Onboarding Features

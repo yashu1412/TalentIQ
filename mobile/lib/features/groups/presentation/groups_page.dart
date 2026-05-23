@@ -188,7 +188,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
           const SizedBox(height: 16),
           const Text('No groups yet', style: TIQTextStyles.titleLarge),
           const SizedBox(height: 8),
-          Text('Tap + to create your first group', style: TIQTextStyles.bodyMedium),
+          const Text('Tap + to create your first group', style: TIQTextStyles.bodyMedium),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: TIQColors.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -220,7 +220,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: TIQColors.primary.withOpacity(0.15),
+                      color: TIQColors.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.group, color: TIQColors.primary),
@@ -263,7 +263,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
             children: gs.selectedGroup!.members.map((m) => Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Chip(
-                backgroundColor: TIQColors.primary.withOpacity(0.1),
+                backgroundColor: TIQColors.primary.withValues(alpha: 0.1),
                 side: const BorderSide(color: TIQColors.borderDefault),
                 label: Text(m.email, style: const TextStyle(color: TIQColors.primary, fontSize: 11, fontFamily: 'Inter')),
                 padding: EdgeInsets.zero,
@@ -323,7 +323,7 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
                     decoration: BoxDecoration(
                       color: TIQColors.primary,
                       borderRadius: BorderRadius.circular(22),
-                      boxShadow: [BoxShadow(color: TIQColors.primary.withOpacity(0.4), blurRadius: 8)],
+                      boxShadow: [BoxShadow(color: TIQColors.primary.withValues(alpha: 0.4), blurRadius: 8)],
                     ),
                     child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                   ),
@@ -361,14 +361,14 @@ class _GroupsPageState extends ConsumerState<GroupsPage> {
             constraints: const BoxConstraints(maxWidth: 260),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: isMe ? TIQColors.primary.withOpacity(0.2) : TIQColors.bgCard,
+              color: isMe ? TIQColors.primary.withValues(alpha: 0.2) : TIQColors.bgCard,
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
                 bottomLeft: Radius.circular(isMe ? 16 : 4),
                 bottomRight: Radius.circular(isMe ? 4 : 16),
               ),
-              border: Border.all(color: isMe ? TIQColors.primary.withOpacity(0.3) : TIQColors.borderDefault),
+              border: Border.all(color: isMe ? TIQColors.primary.withValues(alpha: 0.3) : TIQColors.borderDefault),
             ),
             child: Text(msg.content, style: const TextStyle(color: TIQColors.textPrimary, fontSize: 14, fontFamily: 'Inter')),
           ),

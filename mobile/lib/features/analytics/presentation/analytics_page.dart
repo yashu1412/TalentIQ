@@ -54,9 +54,9 @@ class AnalyticsPage extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.show_chart, size: 40, color: TIQColors.primary.withOpacity(0.5)),
+                          Icon(Icons.show_chart, size: 40, color: TIQColors.primary.withValues(alpha: 0.5)),
                           const SizedBox(height: 8),
-                          Text('Trend Chart Placeholder', style: TIQTextStyles.labelSmall),
+                          const Text('Trend Chart Placeholder', style: TIQTextStyles.labelSmall),
                         ],
                       ),
                     ),

@@ -29,14 +29,14 @@ class GlassCard extends StatelessWidget {
         color: TIQColors.bgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: gradient ? accent.withOpacity(0.3) : TIQColors.borderDefault,
+          color: gradient ? accent.withValues(alpha: 0.3) : TIQColors.borderDefault,
         ),
         gradient: gradient
             ? LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  accent.withOpacity(0.08),
+                  accent.withValues(alpha: 0.08),
                   TIQColors.bgCard,
                 ],
               )
@@ -79,7 +79,7 @@ class TIQPrimaryButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           elevation: 0,
-          shadowColor: bg.withOpacity(0.5),
+          shadowColor: bg.withValues(alpha: 0.5),
         ),
         child: loading
             ? const SizedBox(
@@ -142,9 +142,9 @@ class TIQBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.12),
+        color: c.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: c.withOpacity(0.3)),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,

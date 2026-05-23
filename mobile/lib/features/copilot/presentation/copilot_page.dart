@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/theme/tiq_theme.dart';
-import '../../../shared/widgets/tiq_widgets.dart';
 import 'copilot_controller.dart';
 
 class CopilotPage extends ConsumerStatefulWidget {
@@ -98,7 +97,7 @@ class _CopilotPageState extends ConsumerState<CopilotPage> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: TIQColors.primary.withOpacity(0.2),
+                color: TIQColors.primary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.smart_toy_rounded, size: 16, color: TIQColors.primary),
@@ -175,7 +174,7 @@ class _CopilotPageState extends ConsumerState<CopilotPage> {
                     shape: BoxShape.circle,
                     color: state.sending ? TIQColors.textDim : TIQColors.primary,
                     boxShadow: [
-                      BoxShadow(color: TIQColors.primary.withOpacity(0.4), blurRadius: 10),
+                      BoxShadow(color: TIQColors.primary.withValues(alpha: 0.4), blurRadius: 10),
                     ],
                   ),
                   child: IconButton(

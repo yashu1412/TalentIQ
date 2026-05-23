@@ -66,9 +66,9 @@ class _JobAnalysisPageState extends ConsumerState<JobAnalysisPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: TIQColors.rose.withOpacity(0.1),
+                    color: TIQColors.rose.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: TIQColors.rose.withOpacity(0.3)),
+                    border: Border.all(color: TIQColors.rose.withValues(alpha: 0.3)),
                   ),
                   child: Text(state.error!, style: TIQTextStyles.bodyMedium.copyWith(color: TIQColors.rose)),
                 ),
@@ -146,7 +146,7 @@ class _ResultsSection extends StatelessWidget {
 
         if (summary.isNotEmpty) ...[
           const SizedBox(height: 20),
-          SectionLabel('AI ANALYSIS'),
+          const SectionLabel('AI ANALYSIS'),
           const SizedBox(height: 12),
           GlassCard(
             child: Text(summary, style: TIQTextStyles.bodyMedium.copyWith(height: 1.6)),
