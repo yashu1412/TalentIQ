@@ -14,17 +14,17 @@ interface SkillNode {
 
 interface SkillGraph3DProps {
   matchData: {
-    matched: string[];
-    missing: string[];
-    bonus: string[];
-    matchScore: number;
+    matched?: string[] | { matched: number; total: number };
+    missing?: string[];
+    bonus?: string[];
+    matchScore?: number;
   };
 }
 
 const TYPE_COLOR = { matched: "#378ADD", missing: "#F43F5E", bonus: "#F59E0B" } as const;
 
 function SkillNodeMesh({
-  name, type, position, importance = 0.5, onClick,
+  name, type, position, importance, onClick,
 }: { name: string; type: keyof typeof TYPE_COLOR; position: THREE.Vector3; importance: number; onClick: (n: string) => void }) {
   const ref = useRef<THREE.Mesh>(null);
   const color = TYPE_COLOR[type];
@@ -72,19 +72,31 @@ function CenterOrb({ score }: { score: number }) {
 }
 
 export default function SkillGraph3D({ matchData }: SkillGraph3DProps) {
-  const allNodes: Array<SkillNode & { position: THREE.Vector3 }> = useMemo(() => {
+  const allNodes: Array<{
+    name: string;
+    type: "matched" | "missing" | "bonus";
+    importance: number;
+    position: THREE.Vector3;
+  }> = useMemo(() => {
+    // Handle both array and count formats for matched skills
+    const matchedArray = Array.isArray(matchData.matched) ? matchData.matched : [];
+    const missingArray = Array.isArray(matchData.missing) ? matchData.missing : [];
+    const bonusArray = Array.isArray(matchData.bonus) ? matchData.bonus : [];
+    
     const all = [
-      ...matchData.matched.map(n => ({ name: n, type: "matched" as const })),
-      ...matchData.missing.map(n => ({ name: n, type: "missing" as const })),
-      ...matchData.bonus.map(n => ({ name: n, type: "bonus" as const })),
+      ...matchedArray.map(n => ({ name: n, type: "matched" as const })),
+      ...missingArray.map(n => ({ name: n, type: "missing" as const })),
+      ...bonusArray.map(n => ({ name: n, type: "bonus" as const })),
     ].slice(0, 20);
 
     return all.map((node, i) => {
-      const angle = (i / all.length) * Math.PI * 2;
+      const angle = (i / (all.length || 1)) * Math.PI * 2;
       const radius = 2.2 + (Math.random() - 0.5) * 0.5;
+      const importance = Math.random() * 0.5 + 0.5;
       return {
-        ...node,
-        importance: Math.random() * 0.5 + 0.5,
+        name: node.name,
+        type: node.type,
+        importance,
         position: new THREE.Vector3(
           Math.cos(angle) * radius,
           (Math.random() - 0.5) * 1.5,
@@ -103,9 +115,16 @@ export default function SkillGraph3D({ matchData }: SkillGraph3DProps) {
       <ambientLight intensity={0.4} />
       <pointLight position={[5, 5, 5]} color="#378ADD" intensity={3} />
       <pointLight position={[-5, -5, -5]} color="#8B5CF6" intensity={2} />
-      <CenterOrb score={matchData.matchScore} />
+      <CenterOrb score={matchData.matchScore || 0} />
       {allNodes.map((node, i) => (
-        <SkillNodeMesh key={i} {...node} onClick={handleClick} />
+        <SkillNodeMesh 
+          key={i} 
+          name={node.name}
+          type={node.type}
+          position={node.position}
+          importance={node.importance}
+          onClick={handleClick} 
+        />
       ))}
       <OrbitControls autoRotate autoRotateSpeed={0.5} enableZoom dampingFactor={0.1} enableDamping />
     </Canvas3D>

@@ -100,6 +100,8 @@ export const analyticsApi = {
 export const matchApi = {
   atsSimulate: (resumeId: string, jobId: string, token: string) =>
     api.post("/matches/ats-simulate", { resume_id: resumeId, job_id: jobId }, { headers: { Authorization: `Bearer ${token}` } }),
+  generateAiRecommendations: (matchId: string, token: string) =>
+    api.post(`/matches/${matchId}/ai-recommendations`, {}, { headers: { Authorization: `Bearer ${token}` } }),
 };
 
 export const groupApi = {
