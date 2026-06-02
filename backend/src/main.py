@@ -3,7 +3,10 @@ import asyncio
 import warnings
 
 # Suppress Pydantic V1 compatibility warning in Python 3.14+
-warnings.filterwarnings("ignore", message="Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.")
+warnings.filterwarnings(
+    "ignore",
+    message="Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater."
+)
 
 # Windows async fix for psycopg/sqlalchemy
 if sys.platform == "win32":
@@ -15,13 +18,11 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.core.db import init_pgvector
-
-logger = logging.getLogger("uvicorn.error")
 from src.core.redis import close_redis
 from src.api.auth_router import router as auth_router
 from src.api.resume_router import router as resume_router
@@ -34,11 +35,11 @@ from src.api.analytics_router import router as analytics_router
 from src.api.group_router import router as group_router
 from src.core.feature_flags import feature_flags_dependency
 
+logger = logging.getLogger("uvicorn.error")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: initialise pgvector + tables in the background so that
-    # uvicorn completes startup immediately even when Neon is cold-starting.
     if os.getenv("SKIP_DB_BOOTSTRAP", "").lower() in ("1", "true", "yes"):
         logger.warning("SKIP_DB_BOOTSTRAP is set; skipping init_pgvector()")
     else:
@@ -48,15 +49,14 @@ async def lifespan(app: FastAPI):
                 logger.info("Database schema initialised successfully.")
             except Exception:
                 logger.exception(
-                    "Database init failed (non-fatal); API will still serve requests. "
-                    "Fix DATABASE_URL / Postgres, then restart the API."
+                    "Database init failed (non-fatal); API will still serve requests."
                 )
+
         asyncio.create_task(_init())
 
     yield
-    # Shutdown
-    await close_redis()
 
+    await close_redis()
 
 
 app = FastAPI(
@@ -66,37 +66,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-_DEV_ENV = os.getenv("APP_ENV", os.getenv("ENV", "development")).lower() != "production"
-
-# ALLOWED_ORIGINS: comma-separated list of allowed frontend URLs.
-# In dev mode defaults to ["*"]; in production, must be set explicitly.
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-_ALLOWED_ORIGINS: list[str] = (
-    ["*"]
-    if _DEV_ENV
-    else [o.strip() for o in _raw_origins.split(",") if o.strip()]
-         or ["https://talentiq.vercel.app"]  # safe default if var is missing
-)
-
+# ==========================================
+# CORS - ALLOW ALL ORIGINS
+# ==========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS,
-    allow_credentials=not _DEV_ENV,  # credentials + wildcard origin is not allowed by browsers
+    allow_origins=["*"],
+    allow_credentials=False,  # Must be False with wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
+# ==========================================
 
 
 @app.middleware("http")
 async def request_observability_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     started = time.perf_counter()
+
     response = await call_next(request)
+
     latency_ms = int((time.perf_counter() - started) * 1000)
+
     response.headers["x-request-id"] = request_id
     response.headers["x-response-time-ms"] = str(latency_ms)
+
     logger.info(
         "request",
         extra={
@@ -107,31 +101,43 @@ async def request_observability_middleware(request: Request, call_next):
             "latency_ms": latency_ms,
         },
     )
+
     return response
 
-# Mount all routers
-app.include_router(auth_router,         prefix="/v1")
-app.include_router(resume_router,       prefix="/v1")
-app.include_router(job_router,          prefix="/v1")
-app.include_router(match_router,        prefix="/v1")
-app.include_router(ai_router,           prefix="/v1")
-app.include_router(interview_router,    prefix="/v1")
-app.include_router(live_room_router,    prefix="/v1")
-app.include_router(tracker_router,      prefix="/v1")
-app.include_router(analytics_router,    prefix="/v1")
-app.include_router(group_router,        prefix="/v1")
 
-# Robust path for uploads directory
+# Routers
+app.include_router(auth_router, prefix="/v1")
+app.include_router(resume_router, prefix="/v1")
+app.include_router(job_router, prefix="/v1")
+app.include_router(match_router, prefix="/v1")
+app.include_router(ai_router, prefix="/v1")
+app.include_router(interview_router, prefix="/v1")
+app.include_router(live_room_router, prefix="/v1")
+app.include_router(tracker_router, prefix="/v1")
+app.include_router(analytics_router, prefix="/v1")
+app.include_router(group_router, prefix="/v1")
+
+
+# Uploads directory
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 uploads_dir = os.path.join(BASE_DIR, "uploads")
-if not os.path.exists(uploads_dir):
-    os.makedirs(uploads_dir)
-app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+
+os.makedirs(uploads_dir, exist_ok=True)
+
+app.mount(
+    "/uploads",
+    StaticFiles(directory=uploads_dir),
+    name="uploads",
+)
 
 
 @app.get("/")
 async def root():
-    return {"service": "TalentIQ Career Copilot API", "version": "1.0.0", "status": "healthy"}
+    return {
+        "service": "TalentIQ Career Copilot API",
+        "version": "1.0.0",
+        "status": "healthy",
+    }
 
 
 @app.get("/health")
@@ -140,5 +146,7 @@ async def health_check():
 
 
 @app.get("/v1/platform/flags")
-async def get_platform_flags(flags: dict = Depends(feature_flags_dependency)):
+async def get_platform_flags(
+    flags: dict = Depends(feature_flags_dependency),
+):
     return {"flags": flags}
