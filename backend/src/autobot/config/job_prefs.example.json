@@ -1,0 +1,89 @@
+{
+  "keywords": [
+    "Full Stack Developer",
+    "Full Stack Engineer",
+    "Software Engineer",
+    "Software Developer",
+    "Frontend Developer",
+    "Frontend Engineer",
+    "React Developer",
+    "Next.js Developer",
+    "React.js Developer",
+    "Backend Developer",
+    "Node.js Developer",
+    "TypeScript Developer",
+    "JavaScript Developer",
+    "Software Engineer Intern",
+    "Full Stack Developer Intern",
+    "Frontend Developer Intern",
+    "Backend Developer Intern",
+    "React Developer Intern",
+    "Web Developer Intern",
+    "Python Developer",
+    "FastAPI Developer",
+    "MERN Stack Developer",
+    "Web Developer"
+  ],
+  "experience_level": [
+    "Entry level",
+    "Internship",
+    "Mid-Senior level"
+  ],
+  "job_type": [
+    "Full-time",
+    "Internship",
+    "Contract",
+    "Part-time"
+  ],
+  "remote_only": false,
+  "max_applications_per_day": 80,
+  "search_limit": 15,
+  "countries": [
+    {
+      "country": "India",
+      "priority": 1,
+      "active": true
+    },
+    {
+      "country": "Remote",
+      "priority": 2,
+      "active": true
+    },
+    {
+      "country": "Pune",
+      "priority": 3,
+      "active": true
+    },
+    {
+      "country": "Bangalore",
+      "priority": 4,
+      "active": true
+    },
+    {
+      "country": "Mumbai",
+      "priority": 5,
+      "active": true
+    },
+    {
+      "country": "Hyderabad",
+      "priority": 6,
+      "active": false
+    },
+    {
+      "country": "Chennai",
+      "priority": 7,
+      "active": false
+    }
+  ],
+  "platforms": {
+    "linkedin": {
+      "enabled": true
+    },
+    "naukri": {
+      "enabled": true
+    },
+    "ycombinator": {
+      "enabled": true
+    }
+  }
+}

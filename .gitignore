@@ -43,3 +43,27 @@ ehthumbs.db
 postgres_data/
 piston_data/
 celerybeat-schedule
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+backend/.env*
+frontend/.env*
+autobot-main/.env*
+
+# Auto Job Bot sensitive files (Backend)
+backend/src/autobot/data/
+backend/src/autobot/config/answers.json
+backend/src/autobot/config/job_prefs.json
+
+# Exclude standalone autobot-main folder entirely from git
+autobot-main/
+
+
+# User Uploads (resumes, group attachments, etc.)
+backend/uploads/
+backend/backend/uploads/

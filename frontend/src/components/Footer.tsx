@@ -86,6 +86,22 @@ export default function Footer() {
             >
               LinkedIn
             </Link>
+            <Link
+              href="https://www.naukri.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors"
+            >
+              Naukri.com
+            </Link>
+            <Link
+              href="https://www.workatastartup.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors"
+            >
+              Y Combinator
+            </Link>
           </div>
         </div>
       </div>

@@ -68,6 +68,8 @@ export default function ResumePage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [quickWins, setQuickWins] = useState<string[]>([]);
   const [linkedinSummary, setLinkedinSummary] = useState("");
+  const [naukriSummary, setNaukriSummary] = useState("");
+  const [ycombinatorSummary, setYcombinatorSummary] = useState("");
 
   // Restore done state if resume was previously parsed
   useEffect(() => {
@@ -154,6 +156,24 @@ export default function ResumePage() {
       const context = JSON.stringify(parsed || {}).slice(0, 3000);
       const resp = await copilotApi.writingAssistant("linkedin_summary", context, token || "");
       setLinkedinSummary(resp.data?.output || "");
+    } catch {}
+  };
+
+  const generateNaukriSummary = async () => {
+    try {
+      const token = await getToken();
+      const context = JSON.stringify(parsed || {}).slice(0, 3000);
+      const resp = await copilotApi.writingAssistant("naukri_summary", context, token || "");
+      setNaukriSummary(resp.data?.output || "");
+    } catch {}
+  };
+
+  const generateYCombinatorSummary = async () => {
+    try {
+      const token = await getToken();
+      const context = JSON.stringify(parsed || {}).slice(0, 3000);
+      const resp = await copilotApi.writingAssistant("ycombinator_summary", context, token || "");
+      setYcombinatorSummary(resp.data?.output || "");
     } catch {}
   };
 
@@ -428,6 +448,12 @@ export default function ResumePage() {
             <button onClick={generateLinkedinSummary} className="glow-btn">
               LinkedIn Summary
             </button>
+            <button onClick={generateNaukriSummary} className="glow-btn">
+              Naukri Summary
+            </button>
+            <button onClick={generateYCombinatorSummary} className="glow-btn">
+              YC Startup Bio
+            </button>
             <button
               onClick={() => router.push("/job-analysis")}
               className="glow-btn"
@@ -436,7 +462,7 @@ export default function ResumePage() {
             </button>
           </div>
         )}
-        {(quickWins.length > 0 || linkedinSummary) && (
+        {(quickWins.length > 0 || linkedinSummary || naukriSummary || ycombinatorSummary) && (
           <div className="glass-card p-5 space-y-4">
             {quickWins.length > 0 && (
               <div>
@@ -450,6 +476,18 @@ export default function ResumePage() {
               <div>
                 <h3 className="text-sm font-semibold mb-2" style={{ color: "#378ADD" }}>LinkedIn Summary</h3>
                 <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-muted)" }}>{linkedinSummary}</p>
+              </div>
+            )}
+            {naukriSummary && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2" style={{ color: "#4B6BFB" }}>Naukri Profile Headline & Summary</h3>
+                <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-muted)" }}>{naukriSummary}</p>
+              </div>
+            )}
+            {ycombinatorSummary && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2" style={{ color: "#FF6600" }}>Y Combinator Startup Bio</h3>
+                <p className="text-xs whitespace-pre-wrap" style={{ color: "var(--text-muted)" }}>{ycombinatorSummary}</p>
               </div>
             )}
           </div>

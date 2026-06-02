@@ -42,7 +42,7 @@ async def _detect_intent(message: str) -> str:
             messages=[
                 {
                     "role": "system",
-                    "content": "Classify the user intent as one of: resume_improve, cover_letter, interview_prep, roadmap, linkedin_summary, networking_message, negotiation_script, company_prep, general. Return only the label.",
+                    "content": "Classify the user intent as one of: resume_improve, cover_letter, interview_prep, roadmap, linkedin_summary, naukri_summary, ycombinator_summary, networking_message, negotiation_script, company_prep, general. Return only the label.",
                 },
                 {"role": "user", "content": message},
             ],
@@ -293,6 +293,16 @@ async def writing_assistant(
     task = payload.get("task", "linkedin_summary")
     context = payload.get("context", "")
     oai = get_openrouter_client()
+    
+    if task == "linkedin_summary":
+        system_instructions = "You are a professional career writing assistant. Help write a LinkedIn Summary/About section."
+    elif task == "naukri_summary":
+        system_instructions = "You are a professional career writing assistant. Help write a Naukri.com profile headline and summary. Focus on ATS keywords, clear technical skills, and experience details suitable for the Indian job market."
+    elif task == "ycombinator_summary":
+        system_instructions = "You are a professional career writing assistant. Help write a Y Combinator / Work at a Startup bio/intro. Focus on technical achievements, builder/hackers mindset, and startup relevance."
+    else:
+        system_instructions = "You are a professional career writing assistant."
+
     prompt = (
         f"User task: {task}\n"
         f"Context: {context}\n"
@@ -300,7 +310,7 @@ async def writing_assistant(
     )
     resp = await oai.chat.completions.create(
         model=OR_DEFAULT_MODEL,
-        messages=[{"role": "system", "content": "You are a career writing assistant."}, {"role": "user", "content": prompt}],
+        messages=[{"role": "system", "content": system_instructions}, {"role": "user", "content": prompt}],
         max_tokens=800,
     )
     return {"task": task, "output": resp.choices[0].message.content, "user_id": user.id}

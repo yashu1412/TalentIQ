@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.core.db import init_pgvector
@@ -33,6 +34,7 @@ from src.api.live_room_router import router as live_room_router
 from src.api.tracker_router import router as tracker_router
 from src.api.analytics_router import router as analytics_router
 from src.api.group_router import router as group_router
+from src.api.autobot_router import router as autobot_router
 from src.core.feature_flags import feature_flags_dependency
 
 logger = logging.getLogger("uvicorn.error")
@@ -66,25 +68,67 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ==========================================
-# CORS - ALLOW ALL ORIGINS
-# ==========================================
+def _get_allowed_origins() -> list[str]:
+    """
+    CORS policy:
+    - Allow explicit origins from CORS_ALLOW_ORIGINS (comma-separated)
+    - If CORS_ALLOW_ALL=true, allow all origins
+    - Keep Vercel app origin whitelisted by default
+    """
+    allow_all = os.getenv("CORS_ALLOW_ALL", "").strip().lower() in ("1", "true", "yes")
+    if allow_all:
+        return ["*"]
+
+    explicit = os.getenv("CORS_ALLOW_ORIGINS", "")
+    origins = [origin.strip() for origin in explicit.split(",") if origin.strip()]
+    defaults = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://talent-iq-yrp.vercel.app",
+    ]
+    for origin in defaults:
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
+allowed_origins = _get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,  # Must be False with wildcard origins
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# ==========================================
+
+logger.info("CORS configured", extra={"allowed_origins": allowed_origins})
 
 
 @app.middleware("http")
 async def request_observability_middleware(request: Request, call_next):
     request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     started = time.perf_counter()
-
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        logger.exception(
+            "unhandled_request_error",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "latency_ms": latency_ms,
+                "error": str(exc),
+            },
+        )
+        response = JSONResponse(
+            status_code=500,
+            content={
+                "detail": "Internal Server Error",
+                "request_id": request_id,
+            },
+        )
 
     latency_ms = int((time.perf_counter() - started) * 1000)
 
@@ -116,6 +160,7 @@ app.include_router(live_room_router, prefix="/v1")
 app.include_router(tracker_router, prefix="/v1")
 app.include_router(analytics_router, prefix="/v1")
 app.include_router(group_router, prefix="/v1")
+app.include_router(autobot_router, prefix="/v1")
 
 
 # Uploads directory

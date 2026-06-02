@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useUser, useAuth } from "@clerk/nextjs";
 import {
   LayoutDashboard, FileText, Briefcase, Bot, Video,
-  ListTodo, BarChart2, Zap, Bell, Search, Users, History, Map,
+  ListTodo, BarChart2, Zap, Bell, Search, Users, History, Map, Cpu,
 } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import StatusDot from "@/components/ui/StatusDot";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/resume",          icon: FileText,         label: "Resume AI",     color: "var(--color-teal-600)" },
   { href: "/job-analysis",    icon: Briefcase,        label: "Job Match",     color: "var(--color-teal-600)" },
   { href: "/copilot",         icon: Bot,              label: "AI Copilot",    color: "var(--color-teal-600)" },
+  { href: "/autobot",         icon: Cpu,              label: "Auto Job Bot",  color: "#FF6600" },
   { href: "/mock-interview",  icon: Zap,              label: "Mock Interview",color: "var(--color-violet)" },
   { href: "/live-interview",  icon: Video,            label: "Live Room",     color: "var(--color-amber)" },
   { href: "/interview-replay",icon: History,          label: "Replay",        color: "var(--color-violet)" },
