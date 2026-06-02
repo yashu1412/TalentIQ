@@ -45,7 +45,7 @@ const AI_SUGGESTIONS = [
 const RESUME_KEY = "talentiq_resume_data";
 
 /** Safely coerce any API value to an array. Handles strings, null, undefined. */
-const toArr = <T>(val: unknown): T[] => {
+const toArr = <T,>(val: unknown): T[] => {
   if (Array.isArray(val)) return val as T[];
   if (typeof val === "string" && val) return val.split(",").map(s => s.trim()).filter(Boolean) as T[];
   return [];
