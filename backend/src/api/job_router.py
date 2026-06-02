@@ -17,6 +17,129 @@ from src.models.user import User
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
+COMMON_TECH_SKILLS = [
+    "html", "css", "javascript", "typescript", "react", "next.js", "node.js", "express",
+    "python", "java", "c++", "sql", "mysql", "mongodb", "postgresql", "redis",
+    "git", "github", "rest api", "aws", "azure", "docker", "kubernetes", "tailwind",
+    "fastapi", "graphql", "vercel", "linux", "data structures", "algorithms",
+]
+
+
+def _sanitize_jd_text(raw_text: str) -> tuple[str, list[str]]:
+    """
+    Remove obvious resume contamination from pasted JD input.
+    Returns cleaned text and warning messages.
+    """
+    warnings: list[str] = []
+    text = (raw_text or "").strip()
+    if not text:
+        return text, warnings
+
+    # Hard split when a resume section appears in pasted content.
+    split_markers = [
+        r"\n\s*education\s*\n",
+        r"\n\s*experience\s*\n",
+        r"\n\s*projects\s*\n",
+        r"\n\s*certifications\s*\n",
+        r"\n\s*position of responsibility",
+    ]
+    lower_text = text.lower()
+    cut_indexes = []
+    for marker in split_markers:
+        m = re.search(marker, lower_text, re.IGNORECASE)
+        if m:
+            cut_indexes.append(m.start())
+    if cut_indexes:
+        cut_at = min(cut_indexes)
+        if cut_at > 350:
+            text = text[:cut_at].strip()
+            warnings.append("Detected resume-like sections in pasted JD. Using cleaned job-description portion only.")
+
+    # If contact handles are present, this likely includes resume data.
+    if re.search(r"[\w\.-]+@[\w\.-]+\.\w+|\+?\d[\d\-\s]{8,}", text):
+        warnings.append("Detected contact details in input. Ensure only JD content is pasted for best match accuracy.")
+
+    # Keep reasonable bound for parser prompt context.
+    text = text[:8000]
+    return text, warnings
+
+
+def _fallback_extract_skills(jd_text: str) -> list[str]:
+    """
+    Keyword fallback when LLM output is sparse/invalid.
+    """
+    source = jd_text.lower()
+    found: list[str] = []
+    for skill in COMMON_TECH_SKILLS:
+        pattern = r"\b" + re.escape(skill.lower()) + r"\b"
+        if re.search(pattern, source):
+            found.append(skill)
+    return found[:20]
+
+
+def _normalize_parsed_requirements(parsed: dict, jd_text: str, warnings: list[str]) -> dict:
+    """
+    Normalize keys and ensure parser output has usable minimum fields.
+    """
+    # Accept either legacy/new key names
+    must_have = parsed.get("must_have_skills") or parsed.get("must_have") or []
+    nice_to_have = parsed.get("nice_to_have_skills") or parsed.get("nice_to_have") or []
+    bonus = parsed.get("bonus_skills") or parsed.get("bonus") or []
+    tools = parsed.get("tools_technologies") or parsed.get("tools") or []
+
+    # Normalize list values and dedupe while preserving order
+    def _clean_list(values: list) -> list[str]:
+        cleaned: list[str] = []
+        for value in values:
+            text = str(value).strip()
+            if text and text.lower() not in {v.lower() for v in cleaned}:
+                cleaned.append(text)
+        return cleaned
+
+    must_have = _clean_list(must_have)
+    nice_to_have = _clean_list(nice_to_have)
+    bonus = _clean_list(bonus)
+    tools = _clean_list(tools)
+
+    if not must_have:
+        fallback = _fallback_extract_skills(jd_text)
+        if fallback:
+            must_have = fallback[:10]
+            warnings.append("LLM extraction returned weak requirements. Applied keyword fallback skill extraction.")
+
+    # Lightweight title fallback from first line/header
+    title = (parsed.get("title") or "").strip()
+    if not title or title.lower() in {"unknown", "parsing..."}:
+        first_line = jd_text.splitlines()[0].strip() if jd_text else ""
+        if len(first_line) > 3 and len(first_line) < 100:
+            title = re.sub(r"^[#\-\*\s]+", "", first_line)
+        else:
+            title = "Unknown"
+        warnings.append("Job title confidence is low. Please verify role title manually.")
+
+    normalized = {
+        "title": title,
+        "company": (parsed.get("company") or "").strip(),
+        "location": (parsed.get("location") or "").strip(),
+        "job_level": (parsed.get("job_level") or "").strip(),
+        "years_required": int(parsed.get("years_required") or 0),
+        "must_have_skills": must_have,
+        "nice_to_have_skills": nice_to_have,
+        "bonus_skills": bonus,
+        "tools_technologies": tools,
+        "required_education": _clean_list(parsed.get("required_education") or []),
+        "required_certifications": _clean_list(parsed.get("required_certifications") or []),
+        "soft_skills": _clean_list(parsed.get("soft_skills") or []),
+        "summary": (parsed.get("summary") or "").strip(),
+        "parse_warnings": warnings,
+        "jd_quality": {
+            "has_core_requirements": len(must_have) > 0,
+            "warning_count": len(warnings),
+            "input_length": len(jd_text),
+        },
+    }
+    return normalized
+
 
 async def _extract_jd_requirements(jd_text: str) -> dict:
     """
@@ -114,7 +237,8 @@ async def analyze_job(
     user: User = Depends(get_current_user),  # any authenticated user can analyze jobs
     db: AsyncSession = Depends(get_db),
 ):
-    jd_text = payload.get("jd_text", "")
+    raw_jd_text = payload.get("jd_text", "")
+    jd_text = raw_jd_text
     url = payload.get("url", "")
     if not jd_text and not url:
         raise HTTPException(status_code=400, detail="Provide jd_text or url")
@@ -125,6 +249,9 @@ async def analyze_job(
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, follow_redirects=True)
             jd_text = resp.text[:8000]
+
+    cleaned_jd_text, parse_warnings = _sanitize_jd_text(jd_text)
+    jd_text = cleaned_jd_text
 
     job_id = str(uuid.uuid4())
     job = Job(
@@ -142,6 +269,7 @@ async def analyze_job(
         logger = logging.getLogger("uvicorn.error")
         logger.info(f"[ANALYZE_JOB] Starting JD analysis for job_id={job_id}")
         parsed = await _extract_jd_requirements(jd_text)
+        parsed = _normalize_parsed_requirements(parsed, jd_text, parse_warnings)
         job.title = parsed.get("title", "Unknown")
         job.company = parsed.get("company", "")
         job.location = parsed.get("location", "")
@@ -154,21 +282,26 @@ async def analyze_job(
         logger.error(f"[ANALYZE_JOB] JD extraction failed for job_id={job_id}: {str(e)}")
         logger.error(f"[ANALYZE_JOB] Traceback: {traceback.format_exc()}")
         # Still save job with empty parsed_json so it doesn't fail
-        job.parsed_json = {
-            "title": "Unknown",
-            "company": "",
-            "location": "",
-            "job_level": "",
-            "years_required": 0,
-            "must_have_skills": [],
-            "nice_to_have_skills": [],
-            "bonus_skills": [],
-            "tools_technologies": [],
-            "required_education": [],
-            "required_certifications": [],
-            "soft_skills": [],
-            "summary": "",
-        }
+        fallback = _normalize_parsed_requirements(
+            {
+                "title": "Unknown",
+                "company": "",
+                "location": "",
+                "job_level": "",
+                "years_required": 0,
+                "must_have_skills": [],
+                "nice_to_have_skills": [],
+                "bonus_skills": [],
+                "tools_technologies": [],
+                "required_education": [],
+                "required_certifications": [],
+                "soft_skills": [],
+                "summary": "",
+            },
+            jd_text,
+            parse_warnings + ["JD parser failed and fallback normalization was used."],
+        )
+        job.parsed_json = fallback
         await db.commit()
 
     return {"job_id": job_id, "status": "pending"}

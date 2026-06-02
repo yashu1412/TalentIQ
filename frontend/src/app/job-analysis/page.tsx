@@ -38,6 +38,8 @@ export default function JobAnalysisPage() {
   const [companyPrep, setCompanyPrep] = useState<string>("");
   const [aiRecommLoading, setAiRecommLoading] = useState(false);
 
+  const parseWarnings: string[] = jobData?.parsed_json?.parse_warnings || [];
+
   const clearAnalysis = () => {
     try { localStorage.removeItem(JD_KEY); localStorage.removeItem(JD_KEY + "_job"); localStorage.removeItem(JD_TEXT_KEY); } catch {}
     setMatchData(null); setJobData(null); setJdText(""); setSavedToTracker(false);
@@ -219,6 +221,9 @@ export default function JobAnalysisPage() {
         {/* JD Input */}
         <div className="glass-card p-5">
           <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text-muted)" }}>Paste Job Description</h2>
+          <p className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+            Paste only the job description. Do not include your resume text here.
+          </p>
           <textarea
             value={jdText}
             onChange={e => setJdText(e.target.value)}
@@ -242,6 +247,20 @@ export default function JobAnalysisPage() {
         {/* Results */}
         {matchData && (
           <>
+            {parseWarnings.length > 0 && (
+              <div className="glass-card p-4 border-l-2" style={{ borderLeftColor: "#F59E0B" }}>
+                <h3 className="text-sm font-semibold mb-2" style={{ color: "#F59E0B" }}>
+                  Parsing Warnings
+                </h3>
+                <ul className="space-y-1">
+                  {parseWarnings.map((warning, index) => (
+                    <li key={index} className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      - {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {/* Job Requirements Overview */}
             {jobData?.parsed_json && (
               <div className="glass-card p-4 border-l-2" style={{ borderLeftColor: "#378ADD" }}>
