@@ -141,6 +141,39 @@ def _normalize_parsed_requirements(parsed: dict, jd_text: str, warnings: list[st
     return normalized
 
 
+def _fallback_extract_resume_skills(resume_text: str) -> list[str]:
+    """
+    Resume-side keyword fallback when parsed_json.skills is missing/empty.
+    Re-uses the same COMMON_TECH_SKILLS list.
+    """
+    source = (resume_text or "").lower()
+    found: list[str] = []
+    for skill in COMMON_TECH_SKILLS:
+        pattern = r"\b" + re.escape(skill.lower()) + r"\b"
+        if re.search(pattern, source):
+            found.append(skill)
+    return found[:30]
+
+
+def _ensure_resume_skills(resume_data: dict, resume_text: str) -> dict:
+    """
+    Ensure resume_data.skills is a non-empty list if possible.
+    """
+    skills = resume_data.get("skills")
+    if isinstance(skills, str):
+        resume_data["skills"] = [s.strip() for s in skills.split(",") if s.strip()]
+        skills = resume_data["skills"]
+    if not isinstance(skills, list):
+        resume_data["skills"] = []
+        skills = resume_data["skills"]
+
+    if len(skills) == 0:
+        fallback = _fallback_extract_resume_skills(resume_text)
+        if fallback:
+            resume_data["skills"] = fallback
+    return resume_data
+
+
 async def _extract_jd_requirements(jd_text: str) -> dict:
     """
     Comprehensive extraction of all requirements from JD.
@@ -648,7 +681,7 @@ async def create_match(
 
     # Parsed structured data
     resume_data = resume.parsed_json or {}
-    resume_data.setdefault("skills", [])
+    resume_data = _ensure_resume_skills(resume_data, resume_text)
     resume_data.setdefault("years_experience", 0)
     resume_data.setdefault("education", [])
     resume_data.setdefault("projects_count", 0)
@@ -937,7 +970,7 @@ async def ats_simulate(
         
         # Match this version against JD
         resume_data = version_item["data"]
-        resume_data.setdefault("skills", [])
+        resume_data = _ensure_resume_skills(resume_data, resume.raw_text or "")
         resume_data.setdefault("years_experience", 0)
         resume_data.setdefault("education", [])
         resume_data.setdefault("projects_count", 0)

@@ -63,7 +63,14 @@ export default function JobAnalysisPage() {
         setLoading(false);
         return;
       }
-      const resumeId = resumes[0].id;
+      const bestResume =
+        resumes.find((r: any) => (r?.parse_status || "").toLowerCase() === "done") || resumes[0];
+      if ((bestResume?.parse_status || "").toLowerCase() !== "done") {
+        alert("Your latest resume is still parsing. Please wait until status is 'done' and retry.");
+        setLoading(false);
+        return;
+      }
+      const resumeId = bestResume.id;
       const matchResp = await axios.post(`${API}/matches/create`, { resume_id: resumeId, job_id: jobId }, { headers });
       const matchId = matchResp.data.match_id;
       const [match, jobDetail] = await Promise.all([
