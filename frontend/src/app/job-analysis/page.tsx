@@ -39,6 +39,7 @@ export default function JobAnalysisPage() {
   const [aiRecommLoading, setAiRecommLoading] = useState(false);
 
   const parseWarnings: string[] = jobData?.parsed_json?.parse_warnings || [];
+  const analysisWarning: string | undefined = matchData?.detailedAnalysis?.analysis_warning;
 
   const clearAnalysis = () => {
     try { localStorage.removeItem(JD_KEY); localStorage.removeItem(JD_KEY + "_job"); localStorage.removeItem(JD_TEXT_KEY); } catch {}
@@ -266,6 +267,14 @@ export default function JobAnalysisPage() {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {analysisWarning && (
+              <div className="glass-card p-4 border-l-2" style={{ borderLeftColor: "#F43F5E" }}>
+                <h3 className="text-sm font-semibold mb-2" style={{ color: "#F43F5E" }}>
+                  Match Confidence Warning
+                </h3>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>{analysisWarning}</p>
               </div>
             )}
             {/* Job Requirements Overview */}

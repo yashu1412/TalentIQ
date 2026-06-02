@@ -107,6 +107,10 @@ def _normalize_parsed_requirements(parsed: dict, jd_text: str, warnings: list[st
             must_have = fallback[:10]
             warnings.append("LLM extraction returned weak requirements. Applied keyword fallback skill extraction.")
 
+    total_requirement_signals = len(must_have) + len(nice_to_have) + len(tools)
+    if total_requirement_signals < 2:
+        warnings.append("JD appears low-detail (very few requirements extracted). Match confidence is limited.")
+
     # Lightweight title fallback from first line/header
     title = (parsed.get("title") or "").strip()
     if not title or title.lower() in {"unknown", "parsing..."}:
@@ -416,6 +420,34 @@ def _match_resume_to_jd_requirements(resume_data: dict, jd_requirements: dict) -
     jd_exp = jd_requirements.get("years_required", 0)
     jd_education = jd_requirements.get("required_education", [])
     jd_level = jd_requirements.get("job_level", "").lower()
+
+    # If the JD has almost no structured requirements, avoid inflated scores.
+    has_requirement_signal = bool(jd_must or jd_nice or jd_bonus or jd_tools or jd_exp or jd_education)
+    if not has_requirement_signal:
+        return {
+            "overall_match_score": 35.0,
+            "skill_match": {
+                "must_have": {"ratio": 0.0, "matched": 0, "total": 0, "missing": []},
+                "nice_to_have": {"ratio": 0.0, "matched": 0, "total": 0, "missing": []},
+                "bonus": {"ratio": 0.0, "matched": 0, "total": 0, "missing": []},
+            },
+            "tools_match": {"ratio": 0.0, "matched": 0, "total": 0, "missing": []},
+            "experience_match": {
+                "resume_years": resume_experience,
+                "required_years": 0,
+                "score": 0.0,
+                "meets_requirement": True,
+            },
+            "education_match": {
+                "resume": resume_education,
+                "required": [],
+                "score": 0.0,
+                "has_required": True,
+            },
+            "missing_critical_skills": [],
+            "all_missing_skills": [],
+            "analysis_warning": "JD has insufficient requirement detail. Score is conservative until a fuller JD is provided.",
+        }
     
     # Calculate skill matches by tier
     must_ratio, missing_must = _calculate_overlap(resume_skills, jd_must)
@@ -711,6 +743,15 @@ async def create_match(
     missing_skills = match_analysis.get("missing_critical_skills", [])
     recommendations = match_analysis.get("recommendations", [])
     company_prep = match_analysis.get("company_prep", [])
+
+    # Guardrail: if JD extraction is weak, cap confidence so scores don't look falsely perfect.
+    jd_quality = jd_requirements.get("jd_quality", {})
+    if not jd_quality.get("has_core_requirements", True):
+        match_score = min(match_score, 55)
+        ats_score = min(ats_score, 55)
+        match_analysis["analysis_warning"] = (
+            "JD requirements were weak/limited, so score is capped. Paste a fuller JD for accurate matching."
+        )
 
     match = JobMatch(
         id=str(uuid.uuid4()),
