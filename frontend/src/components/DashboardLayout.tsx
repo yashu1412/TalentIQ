@@ -140,6 +140,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             />
           </div>
 
+          {/* Navigation Links in Dashboard Header */}
+          <div className="hidden lg:flex items-center gap-6">
+            <Link href="/" className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors">
+              Home
+            </Link>
+            <Link href="/how-it-works" className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors">
+              How It Works
+            </Link>
+            <Link href="/studynotion" className="text-sm font-medium text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors">
+              StudyNotion
+            </Link>
+          </div>
+
           <div className="flex items-center gap-4">
             <button className="p-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--bg-deep)] text-[var(--text-muted)] hover:text-[var(--color-teal-300)] transition-colors">
               <Bell className="w-5 h-5" />
