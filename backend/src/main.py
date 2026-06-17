@@ -167,13 +167,24 @@ app.include_router(autobot_router, prefix="/v1")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 uploads_dir = os.path.join(BASE_DIR, "uploads")
 
-os.makedirs(uploads_dir, exist_ok=True)
+try:
+    os.makedirs(uploads_dir, exist_ok=True)
+except PermissionError:
+    # Fallback to a temporary directory if /app/uploads is not writable (e.g. read-only filesystem)
+    import tempfile
+    uploads_dir = os.path.join(tempfile.gettempdir(), "talentiq_uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    logger.warning(
+        f"Permission denied on {os.path.join(BASE_DIR, 'uploads')}. "
+        f"Falling back to temporary directory: {uploads_dir}"
+    )
 
 app.mount(
     "/uploads",
     StaticFiles(directory=uploads_dir),
     name="uploads",
 )
+
 
 
 @app.get("/")
