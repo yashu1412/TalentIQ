@@ -13,6 +13,7 @@
 [![Frontend: Next.js 15](https://img.shields.io/badge/Frontend-Next.js_15-black.svg)](#)
 [![LLM: Google Gemini](https://img.shields.io/badge/LLM-Google_Gemini-4285F4.svg)](#)
 [![Mobile: Flutter](https://img.shields.io/badge/Mobile-Flutter_(In_Progress)-02569B.svg)](#)
+[![AutoBot: Active](https://img.shields.io/badge/AutoBot-Active-FF6600.svg)](#)
 
 </div>
 
@@ -27,6 +28,7 @@ TalentIQ is not just a job-search tool — it's a **complete AI Career Copilot**
 - 🌐 **Immersive 3D UI** using Three.js / React Three Fiber for premium visual experiences
 - 📊 **Full analytics stack** for tracking applications, interview performance, and skill growth
 - 🎓 **Integrated Ed-Tech** (StudyNotion) for learning directly within the platform
+- 🦾 **Auto Job Bot** — a fully automated job application engine for LinkedIn, Naukri & YC
 
 The platform follows a signature `Black → Deep Blue → White` design language with glassmorphism, dynamic micro-animations, and WebGL-powered components throughout.
 
@@ -101,6 +103,70 @@ A persistent **conversational AI assistant** powered by Google Gemini with strea
 - Technical explanations: ask any coding or system design question
 - Context-aware: knows your resume and job targets
 - Real-time SSE streaming so responses appear word-by-word
+
+---
+
+### 🦾 Auto Job Bot
+
+<img src="./screenshots/Auto-job-bot.png" alt="Auto Job Bot" width="100%"/>
+
+The **Auto Job Bot** is TalentIQ's most powerful automation feature — a fully autonomous job application engine that applies to jobs on your behalf across multiple platforms simultaneously.
+
+#### How it works:
+1. **Upload your resume** → the bot parses your profile (name, skills, experience, title) using the AI Resume Analyzer
+2. **Configure preferences** → set target keywords, experience levels, job types, locations, and daily application caps
+3. **Add credentials** → securely store login details for LinkedIn, Naukri, and YC Combinator (password or Google SSO)
+4. **Hit Start** → the bot runs headlessly in the background and streams live logs to your dashboard
+
+#### Key Features:
+| Feature | Details |
+|---|---|
+| 🔵 **LinkedIn** | Applies to Easy Apply jobs across all configured search keywords |
+| 🟠 **Naukri** | Submits applications with auto-filled resume and profile data |
+| 🟡 **YC Work at a Startup** | Searches and applies to YC-backed company postings |
+| 📋 **Live Log Stream** | Real-time SSE log feed — watch every step as it happens |
+| 📊 **Stats Dashboard** | Today's count, total applied, external links, uptime timer |
+| 🧠 **Resume-Aware Keywords** | Auto-generates search keywords from your resume profile skills |
+| 🌍 **Multi-location Search** | Prioritized location queue (India, Remote, Pune, Bangalore, etc.) |
+| 🔒 **Credential Vault** | Encrypted credentials stored securely server-side |
+| 🔄 **Google SSO Support** | Toggle SSO mode — bot handles Google login automatically |
+| 📥 **External Job Tracking** | Flags jobs requiring manual steps; marks them once you apply |
+| 🗑️ **Kanban Job List** | Full table of applied jobs with status badges, filters & delete |
+| ⚙️ **Live Config Editor** | Update keywords, limits, platforms, and locations without restart |
+
+#### Bot Configuration (`job_prefs.json`):
+```json
+{
+  "keywords": ["Full Stack Developer", "React Developer", "Python Engineer", "..."],
+  "experience_level": ["Entry level", "Internship", "Mid-Senior level"],
+  "job_type": ["Full-time", "Internship", "Contract", "Part-time"],
+  "remote_only": false,
+  "max_applications_per_day": 80,
+  "search_limit": 15,
+  "countries": [
+    { "country": "India",     "priority": 1, "active": true },
+    { "country": "Remote",    "priority": 2, "active": true },
+    { "country": "Pune",      "priority": 3, "active": true },
+    { "country": "Bangalore", "priority": 4, "active": true }
+  ],
+  "platforms": {
+    "linkedin":    { "enabled": true },
+    "naukri":      { "enabled": true },
+    "ycombinator": { "enabled": true }
+  }
+}
+```
+
+#### Application Status Types:
+- ✅ `Submitted` — fully automated application completed
+- 🔗 `External - Ready` — external link flagged for manual apply
+- 🖊️ `Manually Applied` — marked as applied by you
+- ⚠️ `Stuck - Manual Action Needed` — bot encountered a blocker
+- ❌ `Failed` — application failed (logged with reason)
+- ⏭️ `Skipped` — skipped due to filters or duplicate
+
+> [!NOTE]
+> The bot runs as a **Playwright-powered headless browser** process on the backend server. It reuses saved browser profiles so repeat logins are skipped automatically after the first run.
 
 ---
 
@@ -224,6 +290,7 @@ A **full Ed-Tech platform embedded within TalentIQ**:
 | 🗺️ Roadmap | 12-week personalised learning plan | ✅ Gemini + Static |
 | 📊 Analytics | Funnel, trends, skill growth charts | — |
 | 🎓 StudyNotion | Full Ed-Tech with course creation | — |
+| 🦾 **Auto Job Bot** | **Automated applications on LinkedIn, Naukri & YC** | **Playwright + AI** |
 
 ---
 
@@ -253,6 +320,30 @@ A **full Ed-Tech platform embedded within TalentIQ**:
 | **PyMuPDF** | High-fidelity PDF text extraction |
 | **Cloudinary** | Resume and media file storage |
 | **Piston API** | Sandboxed multi-language code execution |
+| **Playwright** | Headless browser automation for Auto Job Bot |
+
+### Auto Job Bot Architecture
+```
+User clicks "Start Bot"
+      │
+      ▼
+FastAPI /autobot/start  ──────────────────────────┐
+      │                                            │
+      ▼                                            │
+Playwright Browser Process (headless)              │
+   ├── LinkedIn Easy Apply loop                    │
+   │     └── search keyword × location queue       │
+   ├── Naukri Apply loop                           │
+   │     └── resume auto-fill + submit             │
+   └── YC Work at a Startup loop                   │
+         └── search + one-click apply              │
+      │                                            │
+      ▼                                            │
+SSE Log Stream → Frontend Live Logs panel ◄────────┘
+      │
+      ▼
+applied_jobs.json  (status tracking per application)
+```
 
 ### AI / LLM Architecture
 ```
@@ -300,6 +391,7 @@ talent-IQ/
 │   │   ├── tracker/             # Application Kanban
 │   │   ├── roadmap/             # Career Roadmap
 │   │   ├── analytics/           # Career Analytics
+│   │   ├── autobot/             # Auto Job Bot UI
 │   │   └── studynotion/         # Ed-Tech Platform
 │   └── src/components/          # Shared UI components
 │       └── 3d/                  # Three.js components
@@ -311,7 +403,13 @@ talent-IQ/
 │   │   │   ├── interview_router.py
 │   │   │   ├── job_router.py
 │   │   │   ├── resume_router.py
+│   │   │   ├── autobot_router.py # Auto Job Bot API
 │   │   │   └── live_room_router.py
+│   │   ├── autobot/             # Bot engine
+│   │   │   ├── config/
+│   │   │   │   └── job_prefs.json  # Bot preferences
+│   │   │   ├── core/            # LinkedIn / Naukri / YC scrapers
+│   │   │   └── data/            # Applied jobs tracking
 │   │   ├── core/
 │   │   │   ├── openrouter_client.py  # LLM client (Gemini + fallback)
 │   │   │   └── auth.py, db.py, feature_flags.py
@@ -321,6 +419,13 @@ talent-IQ/
 │   │   ├── models/              # SQLAlchemy ORM models
 │   │   └── workers/             # Celery background tasks
 │   └── requirements.txt
+│
+├── autobot-main/                # Standalone bot engine (Playwright)
+│   ├── core/                    # Platform automation scripts
+│   ├── config/                  # Bot configuration
+│   ├── data/                    # Applied jobs JSON store
+│   ├── dashboard/               # Local dashboard (standalone mode)
+│   └── main.py                  # Bot entry point
 │
 └── screenshots/                 # Platform screenshots (this README)
 ```
@@ -334,6 +439,7 @@ talent-IQ/
 - Python 3.11+
 - PostgreSQL 16 (or Supabase)
 - Redis (for Celery workers)
+- Playwright browsers (`playwright install chromium`)
 
 ### Environment Variables
 
@@ -360,7 +466,7 @@ NEXT_PUBLIC_STREAM_API_KEY=your_stream_key
 ```bash
 # Clone the repo
 git clone https://github.com/yashu1412/TalentIQ.git
-cd TaltRoom-AI
+cd TalentIQ
 
 # Frontend
 cd frontend && npm install && npm run dev
@@ -370,9 +476,23 @@ cd backend
 python -m venv venv && venv\Scripts\activate   # Windows
 pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000
+
+# Auto Job Bot (optional — standalone mode)
+cd autobot-main
+pip install -r requirements.txt
+playwright install chromium
+python main.py
 ```
 
 The app will be available at **http://localhost:3000**
+
+### Auto Job Bot Quick Start
+
+1. Navigate to **Auto Job Bot** in the sidebar
+2. Go to the **Credentials** tab → enter your LinkedIn / Naukri / YC login details
+3. Go to the **Configuration** tab → review / update keywords and limits
+4. Click **"Sync from Resume"** to auto-populate keywords from your parsed resume
+5. Click **▶ Start Bot** — watch live logs appear in the Dashboard tab
 
 ---
 
@@ -415,6 +535,7 @@ The TalentIQ mobile app is being built using **Flutter** to deliver a seamless, 
 | 🤖 AI Features | ✅ Live | Gemini with retry + static fallback |
 | 🔴 Live Rooms | ✅ Live | Stream Video SDK integrated |
 | 🎓 StudyNotion | ✅ Live | Ed-Tech module embedded |
+| 🦾 Auto Job Bot | ✅ Live | LinkedIn · Naukri · YC · Live logs · Config UI |
 | 📱 Flutter Mobile App | 🏗️ In Progress | Active development |
 | 🐳 Docker Deployment | 🔄 In Progress | docker-compose.yml available |
 | 📊 Advanced Analytics | 🔄 Refining | Additional chart types in progress |

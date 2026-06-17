@@ -8,7 +8,7 @@ import { useTheme } from "@/lib/ThemeProvider";
 
 const NAV_LINKS = [
   { href: "#features",    label: "Features"    },
-  { href: "#how-it-works",label: "How It Works" },
+  { href: "/how-it-works",label: "How It Works" },
   { href: "/studynotion", label: "StudyNotion" },
 ];
 

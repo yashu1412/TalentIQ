@@ -585,3 +585,120 @@
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(94, 234, 212, 0.3); border-radius: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(94, 234, 212, 0.5); }
+
+/* --- Advanced Scroll-Driven Animations (CSS View Timeline) --- */
+@keyframes scrollSlideLeft {
+  0% {
+    transform: translateX(-120px) rotate(-8deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) rotate(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scrollSlideRight {
+  0% {
+    transform: translateX(120px) rotate(8deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) rotate(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scrollScaleUp {
+  0% {
+    transform: scale(0.7) translateY(40px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scrollRotateShape {
+  0% {
+    transform: rotate(-180deg) scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scroll-left {
+  animation: scrollSlideLeft backwards;
+  animation-timeline: view();
+  animation-range: entry 5% cover 40%;
+}
+
+.animate-scroll-right {
+  animation: scrollSlideRight backwards;
+  animation-timeline: view();
+  animation-range: entry 5% cover 40%;
+}
+
+.animate-scroll-scale {
+  animation: scrollScaleUp backwards;
+  animation-timeline: view();
+  animation-range: entry 5% cover 40%;
+}
+
+.animate-scroll-rotate {
+  animation: scrollRotateShape backwards;
+  animation-timeline: view();
+  animation-range: entry 5% cover 45%;
+}
+
+/* Fallback for browsers that do not support view() */
+@supports not (animation-timeline: view()) {
+  .animate-scroll-left,
+  .animate-scroll-right,
+  .animate-scroll-scale,
+  .animate-scroll-rotate {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* User reference slideIn animation and shapes */
+@keyframes slideIn {
+  0% {
+    transform: translateX(-100%) scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0%) scale(1);
+    opacity: 1;
+  }
+}
+
+.shape-anim {
+  animation: slideIn backwards;
+  animation-timeline: view();
+  animation-range: entry 0% cover 40%;
+}
+
+.shape-circle {
+  border-radius: 50%;
+}
+
+.shape-square {
+  border-radius: 16px;
+}
+
+.shape-triangle {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.shape-star {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+

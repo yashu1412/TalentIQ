@@ -85,8 +85,8 @@ export default function Home() {
                   <span className="grad-text-anim">Career</span>{" "}
                   Journey.
                 </h1>
-                <TypingText 
-                  text="Analyzing resume... Match score: 98% for Senior AI Engineer." 
+                <TypingText
+                  text="Analyzing resume... Match score: 98% for Senior AI Engineer."
                   className="text-[var(--color-teal-300)] text-sm md:text-base opacity-80"
                   speed={40}
                   repeat
@@ -128,22 +128,22 @@ export default function Home() {
                 <HeroGlobe />
                 {/* Floating stat card overlay */}
                 <div className="absolute -bottom-10 -right-10 w-64 animate-float-y">
-                   <div className="glass-card p-6 border-[var(--color-teal-600)]/30">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Sparkles className="w-4 h-4 text-[var(--color-teal-300)]" />
-                        <span className="font-mono text-[10px] text-[var(--color-teal-300)] uppercase tracking-tighter">// PLATFORM.STATUS: ACTIVE</span>
+                  <div className="glass-card p-6 border-[var(--color-teal-600)]/30">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-4 h-4 text-[var(--color-teal-300)]" />
+                      <span className="font-mono text-[10px] text-[var(--color-teal-300)] uppercase tracking-tighter">// PLATFORM.STATUS: ACTIVE</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-[var(--bg-deep)] rounded-xl border border-[var(--border-default)]">
+                        <div className="text-xl font-display font-bold text-[var(--color-teal-300)]">99%</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Match Accuracy</div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-[var(--bg-deep)] rounded-xl border border-[var(--border-default)]">
-                          <div className="text-xl font-display font-bold text-[var(--color-teal-300)]">99%</div>
-                          <div className="text-[10px] text-[var(--text-muted)]">Match Accuracy</div>
-                        </div>
-                        <div className="p-3 bg-[var(--bg-deep)] rounded-xl border border-[var(--border-default)]">
-                          <div className="text-xl font-display font-bold text-[var(--color-violet)]">10K+</div>
-                          <div className="text-[10px] text-[var(--text-muted)]">Users Joined</div>
-                        </div>
+                      <div className="p-3 bg-[var(--bg-deep)] rounded-xl border border-[var(--border-default)]">
+                        <div className="text-xl font-display font-bold text-[var(--color-violet)]">10K+</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Users Joined</div>
                       </div>
-                   </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -170,13 +170,13 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {FEATURES.map((f, i) => (
-              <Link 
-                key={i} 
-                href={f.href} 
-                className="glass-card glass-card-hover p-8 group animate-fade-in-up" 
+              <Link
+                key={i}
+                href={f.href}
+                className="glass-card glass-card-hover p-8 group animate-fade-in-up"
                 style={{ animationDelay: `${i * 0.1}s` }}
               >
-                <div className="mb-6 p-4 inline-flex rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3" 
+                <div className="mb-6 p-4 inline-flex rounded-2xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-3"
                   style={{ background: `${f.color}15`, color: f.color, border: `1px solid ${f.color}30` }}>
                   {f.icon}
                 </div>
@@ -206,7 +206,7 @@ export default function Home() {
             Four simple steps to <span className="text-[var(--color-teal-300)]">your next role</span>
           </h2>
           <p className="mb-20 text-[var(--text-muted)] text-lg max-w-lg mx-auto">TalentIQ guides you from profile creation to the final offer letter.</p>
-          
+
           <div className="grid md:grid-cols-4 gap-8">
             {STEPS.map((s, i) => (
               <div key={i} className="text-center relative group animate-fade-in-up" style={{ animationDelay: `${i * 0.15}s` }}>
@@ -254,8 +254,8 @@ export default function Home() {
               { name: 'System Glow', icon: '💙', cls: 'animate-pulse-blue', bg: 'rgba(37,99,235,0.1)', desc: 'Glow pulses' },
               { name: 'Alert Glow', icon: '❤️', cls: 'animate-pulse-red', bg: 'rgba(244,63,94,0.1)', desc: 'Pulse warnings' },
             ].map((a, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className="glass-card p-8 flex flex-col items-center justify-center text-center group hover:border-[var(--color-teal-600)] transition-all"
                 style={{ background: a.bg }}
               >
