@@ -7,7 +7,7 @@ import { Zap, Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/lib/ThemeProvider";
 
 const NAV_LINKS = [
-  { href: "#features",    label: "Features"    },
+  { href: "/#features",   label: "Features"    },
   { href: "/how-it-works",label: "How It Works" },
   { href: "/studynotion", label: "StudyNotion" },
 ];
