@@ -69,7 +69,7 @@ interface ResumeProfile {
   ats_score: number | null;
 }
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1").replace(/\/v1$/, "");
 
 function formatUptime(secs: number) {
   const h = Math.floor(secs / 3600);
