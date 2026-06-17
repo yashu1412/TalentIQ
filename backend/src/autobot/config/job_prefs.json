@@ -88,6 +88,16 @@
       "country": "Indore",
       "priority": 10,
       "active": true
+    },
+    {
+      "country": "Noida",
+      "priority": 11,
+      "active": true
+    },
+    {
+      "country": "Gurugram",
+      "priority": 12,
+      "active": true
     }
   ],
   "platforms": {
