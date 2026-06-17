@@ -73,6 +73,21 @@
       "country": "Chennai",
       "priority": 7,
       "active": false
+    },
+    {
+      "country": "Ahmedabad",
+      "priority": 8,
+      "active": true
+    },
+    {
+      "country": "Gandhinagar",
+      "priority": 9,
+      "active": true
+    },
+    {
+      "country": "Indore",
+      "priority": 10,
+      "active": true
     }
   ],
   "platforms": {
