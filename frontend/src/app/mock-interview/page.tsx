@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import DashboardLayout from "@/components/DashboardLayout";
 import dynamic from "next/dynamic";
-import { Zap, Send, ChevronRight, Mic, Timer, Download } from "lucide-react";
+import { Zap, Send, ChevronRight, Mic, Timer, Download, Upload, FileText } from "lucide-react";
 import axios from "axios";
 
 const InterviewAvatar3D = dynamic(() => import("@/components/3d/InterviewAvatar3D"), { ssr: false });
@@ -14,6 +14,13 @@ const ScoreRing3D = dynamic(() => import("@/components/3d/ScoreRing3D"), { ssr: 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/v1";
 type Stage = "setup" | "interview" | "report";
 type AvatarState = "idle" | "thinking" | "speaking";
+type ResumeOption = {
+  id: string;
+  file_name: string;
+  parse_status: string;
+  created_at?: string | null;
+};
+type UploadState = "idle" | "uploading" | "processing" | "error";
 
 const QUESTION_TIME_LIMIT = 120;
 
@@ -62,6 +69,11 @@ export default function MockInterviewPage() {
 
   const [roles, setRoles] = useState<string[]>(DEFAULT_ROLES);
   const [roundTypesByRole, setRoundTypesByRole] = useState<Record<string, string[]>>(DEFAULT_ROUND_TYPES_BY_ROLE);
+  const [resumes, setResumes] = useState<ResumeOption[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState("");
+  const [pendingResumeFile, setPendingResumeFile] = useState<File | null>(null);
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [uploadMessage, setUploadMessage] = useState("");
 
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const [interviewId, setInterviewId] = useState<string | null>(null);
@@ -79,7 +91,33 @@ export default function MockInterviewPage() {
   const recognitionRef = useRef<any>(null);
 
   // Available round types for selected role
-  const availableRounds = roundTypesByRole[role] ?? ["Behavioral", "Technical", "HR"];
+  const baseRounds = roundTypesByRole[role] ?? ["Behavioral", "Technical", "HR"];
+  const availableRounds = Array.from(new Set([...baseRounds, "Resume round"]));
+  const isResumeRound = roundType === "Resume round";
+  const selectedResume = resumes.find((resume) => resume.id === selectedResumeId) ?? null;
+  const hasParsedResume = resumes.some((resume) => (resume.parse_status || "").toLowerCase() === "done");
+
+  const loadResumes = async (preferResumeId?: string) => {
+    const token = await getToken();
+    const resp = await axios.get(`${API}/resumes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const resumeList: ResumeOption[] = Array.isArray(resp.data) ? resp.data : [];
+    setResumes(resumeList);
+
+    const preferredResume =
+      (preferResumeId ? resumeList.find((resume) => resume.id === preferResumeId) : null) ??
+      resumeList.find((resume) => (resume.parse_status || "").toLowerCase() === "done") ??
+      resumeList[0];
+
+    if (preferredResume) {
+      setSelectedResumeId(preferredResume.id);
+    } else {
+      setSelectedResumeId("");
+    }
+
+    return resumeList;
+  };
 
   // Reset round type when role changes
   useEffect(() => {
@@ -92,18 +130,80 @@ export default function MockInterviewPage() {
     const fetch = async () => {
       try {
         const token = await getToken();
-        const resp = await axios.get(`${API}/interviews/options`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (resp.data?.roles?.length) setRoles(resp.data.roles);
-        if (resp.data?.round_types_by_role) setRoundTypesByRole(resp.data.round_types_by_role);
+        const headers = { Authorization: `Bearer ${token}` };
+        const [optionsResp] = await Promise.all([
+          axios.get(`${API}/interviews/options`, { headers }),
+        ]);
+        if (optionsResp.data?.roles?.length) setRoles(optionsResp.data.roles);
+        if (optionsResp.data?.round_types_by_role) setRoundTypesByRole(optionsResp.data.round_types_by_role);
+        await loadResumes();
       } catch {
-        // use defaults silently
+        try {
+          await loadResumes();
+        } catch {
+          // keep defaults silently
+        }
       }
     };
     fetch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const uploadResume = async () => {
+    if (!pendingResumeFile) return;
+    setUploadState("uploading");
+    setUploadMessage("Uploading resume...");
+
+    try {
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append("file", pendingResumeFile);
+      formData.append("target_role", role);
+      formData.append("experience_level", "intermediate");
+
+      const resp = await axios.post(`${API}/resumes/upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const resumeId = resp.data.resume_id;
+      setUploadState("processing");
+      setUploadMessage("Resume uploaded. Parsing in progress...");
+      setSelectedResumeId(resumeId);
+
+      const poll = setInterval(async () => {
+        try {
+          const freshToken = await getToken({ skipCache: true });
+          const detail = await axios.get(`${API}/resumes/${resumeId}`, {
+            headers: { Authorization: `Bearer ${freshToken}` },
+          });
+          const status = (detail.data?.parse_status || "").toLowerCase();
+
+          await loadResumes(resumeId);
+
+          if (status === "done") {
+            clearInterval(poll);
+            setUploadState("idle");
+            setUploadMessage("Resume parsed and ready for Resume round.");
+            setPendingResumeFile(null);
+          } else if (status === "failed") {
+            clearInterval(poll);
+            setUploadState("error");
+            setUploadMessage("Resume parsing failed. Please try another PDF.");
+          }
+        } catch {
+          clearInterval(poll);
+          setUploadState("error");
+          setUploadMessage("Could not check resume parsing status.");
+        }
+      }, 2000);
+    } catch {
+      setUploadState("error");
+      setUploadMessage("Resume upload failed. Please try again.");
+    }
+  };
 
   // Timer per question
   useEffect(() => {
@@ -122,13 +222,35 @@ export default function MockInterviewPage() {
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const startInterview = async () => {
+    if (isResumeRound) {
+      if (!selectedResumeId) {
+        alert("Please select a resume for Resume round.");
+        return;
+      }
+      if ((selectedResume?.parse_status || "").toLowerCase() !== "done") {
+        alert("The selected resume is still parsing. Please choose a parsed resume or wait until parsing completes.");
+        return;
+      }
+    }
+
     setStarting(true);
     setAvatarState("thinking");
     try {
       const token = await getToken();
+      const payload: Record<string, string> = {
+        role,
+        round_type: roundType,
+        type: "technical",
+        mode: "text",
+        difficulty: "medium",
+        persona,
+      };
+      if (isResumeRound) {
+        payload.resume_id = selectedResumeId;
+      }
       const resp = await axios.post(
         `${API}/interviews/start`,
-        { role, round_type: roundType, type: "technical", mode: "text", difficulty: "medium", persona },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setInterviewId(resp.data.interview_id);
@@ -327,6 +449,87 @@ export default function MockInterviewPage() {
                 </div>
               </div>
 
+              {isResumeRound && (
+                <div className="space-y-2">
+                  <label htmlFor="resume-upload" className="text-xs font-semibold uppercase tracking-widest block"
+                    style={{ color: "var(--text-muted)" }}>
+                    Upload Resume
+                  </label>
+                  <div
+                    className="rounded-xl p-3"
+                    style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)" }}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        htmlFor="resume-upload"
+                        className="glow-btn text-sm cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4" /> Choose PDF
+                      </label>
+                      <input
+                        id="resume-upload"
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] ?? null;
+                          setPendingResumeFile(file);
+                          setUploadMessage("");
+                          setUploadState("idle");
+                        }}
+                      />
+                      <button
+                        onClick={uploadResume}
+                        disabled={!pendingResumeFile || uploadState === "uploading" || uploadState === "processing"}
+                        className="glow-btn glow-btn-primary text-sm"
+                        style={{ opacity: !pendingResumeFile || uploadState === "uploading" || uploadState === "processing" ? 0.5 : 1 }}
+                      >
+                        <Upload className="w-4 h-4" />
+                        {uploadState === "uploading" || uploadState === "processing" ? "Processing..." : "Upload Resume"}
+                      </button>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>{pendingResumeFile?.name || "PDF only, max 5 MB."}</span>
+                    </div>
+                    {uploadMessage && (
+                      <p className="text-xs mt-2" style={{ color: uploadState === "error" ? "#F43F5E" : "var(--text-muted)" }}>
+                        {uploadMessage}
+                      </p>
+                    )}
+                  </div>
+
+                  <label htmlFor="resume-select" className="text-xs font-semibold uppercase tracking-widest block"
+                    style={{ color: "var(--text-muted)" }}>
+                    Resume Source
+                  </label>
+                  <select
+                    id="resume-select"
+                    value={selectedResumeId}
+                    onChange={e => setSelectedResumeId(e.target.value)}
+                    className="w-full p-3 rounded-xl text-sm appearance-none cursor-pointer"
+                    style={{ background: "var(--bg-deep)", border: "1px solid var(--border-default)", color: "var(--text-primary)" }}
+                  >
+                    {!resumes.length && (
+                      <option value="">No resumes found</option>
+                    )}
+                    {resumes.map((resume) => {
+                      const status = (resume.parse_status || "unknown").toLowerCase();
+                      const suffix = status === "done" ? "ready" : status;
+                      return (
+                        <option key={resume.id} value={resume.id}>
+                          {resume.file_name} ({suffix})
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Resume round asks questions only from your selected resume.
+                    {!hasParsedResume ? " Upload and parse a resume first." : ""}
+                  </p>
+                </div>
+              )}
+
               {/* Recruiter Persona */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-widest block"
@@ -358,13 +561,14 @@ export default function MockInterviewPage() {
                 style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)", color: "var(--text-muted)" }}>
                 📋 <strong style={{ color: "var(--text-primary)" }}>{role}</strong>
                 {" · "}{roundType}
+                {isResumeRound && selectedResume ? ` · ${selectedResume.file_name}` : ""}
                 {" · "}{PERSONAS.find(p => p.key === persona)?.label} interviewer
               </div>
 
               <button
                 id="start-interview-btn"
                 onClick={startInterview}
-                disabled={starting}
+                disabled={starting || (isResumeRound && (!selectedResumeId || !hasParsedResume))}
                 className="glow-btn glow-btn-primary w-full justify-center"
               >
                 {starting ? (

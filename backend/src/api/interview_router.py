@@ -69,6 +69,171 @@ Return JSON with:
 Weights: technical_accuracy=30%, relevance=20%, clarity=20%, completeness=15%, conciseness=10%, confidence=5%"""
 
 
+def _resume_context_blob(resume: Resume) -> str:
+    """Build a compact text snapshot used for resume-grounded prompts."""
+    parsed = resume.parsed_json or {}
+    sections = []
+
+    summary = parsed.get("summary") or parsed.get("professional_summary")
+    if summary:
+        sections.append(f"Summary: {summary}")
+
+    skills = parsed.get("skills") or []
+    if skills:
+        if isinstance(skills, dict):
+            skill_values = []
+            for value in skills.values():
+                if isinstance(value, list):
+                    skill_values.extend(value)
+                elif value:
+                    skill_values.append(str(value))
+            skills = skill_values
+        sections.append(f"Skills: {', '.join(str(skill) for skill in skills[:20])}")
+
+    experience = parsed.get("experience") or parsed.get("work_experience") or []
+    if isinstance(experience, list) and experience:
+        exp_lines = []
+        for item in experience[:4]:
+            if isinstance(item, dict):
+                title = item.get("title") or item.get("role") or item.get("position") or "Unknown title"
+                company = item.get("company") or item.get("organization") or "Unknown company"
+                achievements = item.get("achievements") or item.get("highlights") or item.get("responsibilities") or []
+                if isinstance(achievements, list):
+                    achievement_text = "; ".join(str(point) for point in achievements[:2])
+                else:
+                    achievement_text = str(achievements)
+                exp_lines.append(f"{title} at {company}: {achievement_text}".strip())
+            else:
+                exp_lines.append(str(item))
+        sections.append("Experience: " + " | ".join(exp_lines))
+
+    projects = parsed.get("projects") or []
+    if isinstance(projects, list) and projects:
+        project_lines = []
+        for item in projects[:3]:
+            if isinstance(item, dict):
+                name = item.get("name") or item.get("title") or "Project"
+                details = item.get("description") or item.get("summary") or item.get("impact") or ""
+                tech = item.get("technologies") or item.get("tech_stack") or []
+                tech_text = f" ({', '.join(str(t) for t in tech[:5])})" if isinstance(tech, list) and tech else ""
+                project_lines.append(f"{name}{tech_text}: {details}".strip())
+            else:
+                project_lines.append(str(item))
+        sections.append("Projects: " + " | ".join(project_lines))
+
+    education = parsed.get("education") or []
+    if isinstance(education, list) and education:
+        edu_lines = []
+        for item in education[:2]:
+            if isinstance(item, dict):
+                degree = item.get("degree") or item.get("qualification") or "Degree"
+                institution = item.get("institution") or item.get("school") or "Institution"
+                edu_lines.append(f"{degree} at {institution}")
+            else:
+                edu_lines.append(str(item))
+        sections.append("Education: " + " | ".join(edu_lines))
+
+    if not sections and resume.raw_text:
+        sections.append(f"Resume text: {resume.raw_text[:2500]}")
+
+    return "\n".join(section for section in sections if section).strip()
+
+
+def _resume_round_fallback_questions(resume: Resume, role: str | None, count: int = 8) -> list[dict]:
+    """Create deterministic resume-only questions when the LLM is unavailable."""
+    parsed = resume.parsed_json or {}
+    questions: list[dict] = []
+    role_label = role or "this role"
+
+    summary = parsed.get("summary") or parsed.get("professional_summary")
+    if summary:
+        questions.append({
+            "text": f"Give me a concise walkthrough of your background based on the summary in your resume and explain how it prepares you for {role_label}.",
+            "category": "Resume Summary",
+        })
+
+    experience = parsed.get("experience") or parsed.get("work_experience") or []
+    if isinstance(experience, list):
+        for item in experience[:3]:
+            if not isinstance(item, dict):
+                continue
+            title = item.get("title") or item.get("role") or item.get("position")
+            company = item.get("company") or item.get("organization")
+            achievements = item.get("achievements") or item.get("highlights") or item.get("responsibilities") or []
+            focus = achievements[0] if isinstance(achievements, list) and achievements else None
+            if title and company:
+                prompt = f"On your resume you list {title} at {company}. What were your main responsibilities and measurable impact there?"
+                if focus:
+                    prompt = f"On your resume you mention {focus} while working as {title} at {company}. Walk me through the problem, your actions, and the outcome."
+                questions.append({"text": prompt, "category": "Experience"})
+
+    projects = parsed.get("projects") or []
+    if isinstance(projects, list):
+        for item in projects[:2]:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name") or item.get("title")
+            tech = item.get("technologies") or item.get("tech_stack") or []
+            if name:
+                tech_text = ""
+                if isinstance(tech, list) and tech:
+                    tech_text = f" and why you chose {', '.join(str(t) for t in tech[:4])}"
+                questions.append({
+                    "text": f"Tell me about the {name} project on your resume, including the goal, your contribution{tech_text}, and the result.",
+                    "category": "Projects",
+                })
+
+    skills = parsed.get("skills") or []
+    flat_skills: list[str] = []
+    if isinstance(skills, dict):
+        for value in skills.values():
+            if isinstance(value, list):
+                flat_skills.extend(str(item) for item in value[:6])
+            elif value:
+                flat_skills.append(str(value))
+    elif isinstance(skills, list):
+        flat_skills = [str(item) for item in skills[:8]]
+    if flat_skills:
+        questions.append({
+            "text": f"Your resume highlights skills like {', '.join(flat_skills[:5])}. Which of these are your strongest, and where have you applied them in real work?",
+            "category": "Skills",
+        })
+
+    education = parsed.get("education") or []
+    if isinstance(education, list) and education:
+        questions.append({
+            "text": "How has your education or training, as listed on your resume, shaped the way you approach your work today?",
+            "category": "Education",
+        })
+
+    questions.append({
+        "text": "Looking at your resume as a whole, which experience best represents your strengths, and what should an interviewer understand about you from it?",
+        "category": "Reflection",
+    })
+    questions.append({
+        "text": "If I asked you to expand one bullet point from your resume that is easy to underestimate, which would you choose and why?",
+        "category": "Resume Depth",
+    })
+
+    deduped: list[dict] = []
+    seen: set[str] = set()
+    for question in questions:
+        text = question["text"]
+        if text not in seen:
+            deduped.append(question)
+            seen.add(text)
+        if len(deduped) >= count:
+            return deduped
+
+    while len(deduped) < count:
+        deduped.append({
+            "text": "Choose one accomplishment from your resume and explain the context, your specific contribution, the challenges, and the outcome.",
+            "category": "Resume Review",
+        })
+
+    return deduped[:count]
+
+
 def _extract_json(text: str) -> dict:
     """Robustly extract JSON from LLM response."""
     m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
@@ -96,15 +261,24 @@ async def start_interview(
         job_id = payload.get("job_id")
         role = payload.get("role")          # e.g. "Software Engineer"
         round_type = payload.get("round_type")  # e.g. "Coding & DS/Algo"
+        is_resume_round = round_type == "Resume round"
 
         context = f"Interview type: {interview_type}, Difficulty: {difficulty}"
+        resume = None
         if resume_id:
             r = await db.execute(select(Resume).where(Resume.id == resume_id, Resume.user_id == user.id))
             resume = r.scalar_one_or_none()
             if resume and resume.parsed_json:
                 skills = resume.parsed_json.get("skills", [])
                 context += f", Candidate skills: {skills[:15]}"
-        if job_id:
+        if is_resume_round:
+            if not resume_id:
+                raise HTTPException(status_code=400, detail="Resume round requires a resume_id")
+            if not resume:
+                raise HTTPException(status_code=404, detail="Resume not found")
+            if not (resume.parsed_json or resume.raw_text):
+                raise HTTPException(status_code=400, detail="Resume content is not ready yet")
+        if job_id and not is_resume_round:
             j = await db.execute(select(Job).where(Job.id == job_id))
             job = j.scalar_one_or_none()
             if job:
@@ -113,7 +287,18 @@ async def start_interview(
         # Try LLM first
         questions_data = None
         try:
-            prompt = f"""Generate 8 {difficulty} {interview_type} interview questions. Context: {context}
+            if is_resume_round and resume:
+                resume_context = _resume_context_blob(resume)
+                prompt = f"""Generate 8 interview questions for a resume review round for the role "{role or interview_type}".
+Ask questions only about the candidate's resume. Focus on projects, experience, skills, achievements, education, ownership, impact, and decisions shown in the resume.
+Do not ask generic theory questions unless directly anchored to something explicitly mentioned in the resume.
+Do not use job description context, company-specific prep, or broad role-fit questions outside the resume.
+Resume:
+{resume_context}
+
+Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
+            else:
+                prompt = f"""Generate 8 {difficulty} {interview_type} interview questions for the role "{role or interview_type}" and round "{round_type or 'General'}". Context: {context}
 Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
             resp = await llm_create(
                 messages=[
@@ -128,8 +313,11 @@ Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
 
         # Static fallback — role-specific questions
         if not questions_data:
-            static = get_static_questions(role or interview_type, round_type, count=8)
-            questions_data = [{"text": q["text"], "category": q["category"]} for q in static]
+            if is_resume_round and resume:
+                questions_data = _resume_round_fallback_questions(resume, role=role, count=8)
+            else:
+                static = get_static_questions(role or interview_type, round_type, count=8)
+                questions_data = [{"text": q["text"], "category": q["category"]} for q in static]
 
         interview_id = str(uuid.uuid4())
         interview = Interview(
@@ -165,7 +353,10 @@ Return JSON: {{ "questions": [ {{ "text": string, "category": string }} ] }}"""
                 "text": first_q.question_text,
                 "sequence": 1,
             } if first_q else None,
+            "total_questions": len(question_objs),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

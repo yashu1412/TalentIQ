@@ -76,7 +76,7 @@ async def init_pgvector():
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     # Import all models to register them with Base before create_all
     from src.models import (  # noqa: F401
-        User, UserProfile, Resume, ResumeVersion,
+        User, UserProfile, UserPlatformCredentials, Resume, ResumeVersion,
         Job, JobMatch, Interview, InterviewQuestion,
         LiveRoom, Chat, ChatMessage, Application,
         Group, GroupMessage,

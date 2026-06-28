@@ -1,4 +1,4 @@
-from src.models.user import User, UserProfile
+from src.models.user import User, UserProfile, UserPlatformCredentials
 from src.models.resume import Resume, ResumeVersion
 from src.models.job import Job, JobMatch
 from src.models.interview import Interview, InterviewQuestion
@@ -7,7 +7,7 @@ from src.models.group_chat import Group, GroupMessage
 from src.models.embeddings import DocumentEmbedding
 
 __all__ = [
-    "User", "UserProfile",
+    "User", "UserProfile", "UserPlatformCredentials",
     "Resume", "ResumeVersion",
     "Job", "JobMatch",
     "Interview", "InterviewQuestion",

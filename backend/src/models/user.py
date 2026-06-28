@@ -17,6 +17,7 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan", lazy="selectin")
+    platform_credentials = relationship("UserPlatformCredentials", back_populates="user", uselist=False, cascade="all, delete-orphan", lazy="selectin")
     resumes = relationship("Resume", back_populates="user", cascade="all, delete-orphan")
     interviews = relationship("Interview", back_populates="user", cascade="all, delete-orphan")
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -37,3 +38,19 @@ class UserProfile(Base):
     goals_json = Column(JSON)                   # Structured career goals
 
     user = relationship("User", back_populates="profile")
+
+
+class UserPlatformCredentials(Base):
+    __tablename__ = "user_platform_credentials"
+
+    user_id = Column(String, ForeignKey("users.id"), primary_key=True, index=True)
+    linkedin_email = Column(String, nullable=True)
+    linkedin_password = Column(String, nullable=True)
+    naukri_email = Column(String, nullable=True)
+    naukri_password = Column(String, nullable=True)
+    yc_email = Column(String, nullable=True)
+    yc_password = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="platform_credentials")

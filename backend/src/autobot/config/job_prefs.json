@@ -102,7 +102,7 @@
   ],
   "platforms": {
     "linkedin": {
-      "enabled": true
+      "enabled": false
     },
     "naukri": {
       "enabled": true

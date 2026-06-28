@@ -37,8 +37,9 @@ from jose import jwt, JWTError
 
 from src.core.auth import get_current_user, CLERK_JWT_PUBLIC_KEY, CLERK_JWT_ISSUER, ALLOW_INSECURE_JWT_DECODE, APP_ENV
 from src.core.db import get_db
-from src.models.user import User
+from src.models.user import User, UserPlatformCredentials
 from src.models.resume import Resume
+from src.core.security import encrypt_password, decrypt_password
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -110,6 +111,7 @@ def _stream_subprocess_output(proc: subprocess.Popen) -> None:
 async def start_bot(
     payload: dict = {},
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Start the job application bot as a managed subprocess.
@@ -129,20 +131,29 @@ async def start_bot(
 
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
 
-    # ── Inject per-user credentials from the credentials file ──────────────────
-    creds_path = _creds_file(user.id)
-    creds = _load_json(creds_path, {})
-    creds_map = {
-        "linkedin_email":    "AUTOBOT_LINKEDIN_EMAIL",
-        "linkedin_password": "AUTOBOT_LINKEDIN_PASSWORD",
-        "naukri_email":      "AUTOBOT_NAUKRI_EMAIL",
-        "naukri_password":   "AUTOBOT_NAUKRI_PASSWORD",
-        "yc_email":          "AUTOBOT_YC_EMAIL",
-        "yc_password":       "AUTOBOT_YC_PASSWORD",
-    }
-    for cred_key, env_key in creds_map.items():
-        if cred_key in creds:
-            env[env_key] = creds[cred_key]   # override .env value with user's saved credentials (even if empty to support SSO)
+    # ── Inject per-user credentials from the database ──────────────────────────
+    result = await db.execute(select(UserPlatformCredentials).where(UserPlatformCredentials.user_id == user.id))
+    db_creds = result.scalar_one_or_none()
+    if db_creds:
+        creds_data = {
+            "linkedin_email":    db_creds.linkedin_email or "",
+            "linkedin_password": decrypt_password(db_creds.linkedin_password),
+            "naukri_email":      db_creds.naukri_email or "",
+            "naukri_password":   decrypt_password(db_creds.naukri_password),
+            "yc_email":          db_creds.yc_email or "",
+            "yc_password":       decrypt_password(db_creds.yc_password),
+        }
+        creds_map = {
+            "linkedin_email":    "AUTOBOT_LINKEDIN_EMAIL",
+            "linkedin_password": "AUTOBOT_LINKEDIN_PASSWORD",
+            "naukri_email":      "AUTOBOT_NAUKRI_EMAIL",
+            "naukri_password":   "AUTOBOT_NAUKRI_PASSWORD",
+            "yc_email":          "AUTOBOT_YC_EMAIL",
+            "yc_password":       "AUTOBOT_YC_PASSWORD",
+        }
+        for cred_key, env_key in creds_map.items():
+            if creds_data[cred_key]:
+                env[env_key] = creds_data[cred_key]   # override .env value with user's saved credentials (even if empty to support SSO)
 
     # ── Inject per-user profile from the profile file ──────────────────────────
     profile_path = _profile_file(user.id)
@@ -437,73 +448,77 @@ async def get_session_state(user: User = Depends(get_current_user)):
     return {"state": state}
 
 
-# ── Credentials (stored per-user on server, never sent back to frontend) ──────
-
-def _creds_file(user_id: str) -> Path:
-    """
-    Per-user encrypted-at-rest credentials stored in the autobot data dir.
-    We don't store passwords in the DB — only in a server-side JSON file
-    that is never exposed through any GET endpoint.
-    """
-    path = _DATA_DIR / "credentials" / f"{user_id}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
-
+# ── Credentials (stored per-user in DB, passwords encrypted) ─────────────────
 
 @router.post("/credentials")
 async def save_credentials(
     payload: dict,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Save platform credentials (email + password) to a server-side file.
-    Fields accepted:
-      linkedin_email, linkedin_password,
-      naukri_email, naukri_password,
-      yc_email, yc_password
-    Passwords are never returned via API — only saved.
+    Save platform credentials (email + password) to the database.
+    Passwords are encrypted at rest using AES Fernet.
     """
-    allowed = {
-        "linkedin_email", "linkedin_password",
-        "naukri_email", "naukri_password",
-        "yc_email", "yc_password",
-    }
-    creds_path = _creds_file(user.id)
-    existing = _load_json(creds_path, {})
+    result = await db.execute(select(UserPlatformCredentials).where(UserPlatformCredentials.user_id == user.id))
+    db_creds = result.scalar_one_or_none()
+
+    if not db_creds:
+        db_creds = UserPlatformCredentials(user_id=user.id)
+        db.add(db_creds)
 
     updated_fields = []
-    for key in allowed:
-        if key in payload and payload[key] is not None:
-            existing[key] = payload[key]
-            updated_fields.append(key)
 
-    _save_json(creds_path, existing)
-    logger.info(f"[AUTOBOT] Credentials updated for user {user.id}: {updated_fields}")
+    if "linkedin_email" in payload and payload["linkedin_email"] is not None:
+        db_creds.linkedin_email = payload["linkedin_email"]
+        updated_fields.append("linkedin_email")
+    if "linkedin_password" in payload and payload["linkedin_password"] is not None:
+        db_creds.linkedin_password = encrypt_password(payload["linkedin_password"]) if payload["linkedin_password"] else ""
+        updated_fields.append("linkedin_password")
+
+    if "naukri_email" in payload and payload["naukri_email"] is not None:
+        db_creds.naukri_email = payload["naukri_email"]
+        updated_fields.append("naukri_email")
+    if "naukri_password" in payload and payload["naukri_password"] is not None:
+        db_creds.naukri_password = encrypt_password(payload["naukri_password"]) if payload["naukri_password"] else ""
+        updated_fields.append("naukri_password")
+
+    if "yc_email" in payload and payload["yc_email"] is not None:
+        db_creds.yc_email = payload["yc_email"]
+        updated_fields.append("yc_email")
+    if "yc_password" in payload and payload["yc_password"] is not None:
+        db_creds.yc_password = encrypt_password(payload["yc_password"]) if payload["yc_password"] else ""
+        updated_fields.append("yc_password")
+
+    await db.commit()
+    logger.info(f"[AUTOBOT] Credentials updated in DB for user {user.id}: {updated_fields}")
     return {"success": True, "updated": updated_fields}
 
 
 @router.get("/credentials/status")
 async def credentials_status(
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Returns which credentials are configured (true/false) WITHOUT exposing passwords.
     Emails are returned so the user knows which account is set.
     """
-    creds_path = _creds_file(user.id)
-    creds = _load_json(creds_path, {})
+    result = await db.execute(select(UserPlatformCredentials).where(UserPlatformCredentials.user_id == user.id))
+    db_creds = result.scalar_one_or_none()
+
     return {
         "linkedin": {
-            "email": creds.get("linkedin_email", ""),
-            "has_password": bool(creds.get("linkedin_password")),
+            "email": db_creds.linkedin_email if db_creds else "",
+            "has_password": bool(db_creds.linkedin_password) if db_creds else False,
         },
         "naukri": {
-            "email": creds.get("naukri_email", ""),
-            "has_password": bool(creds.get("naukri_password")),
+            "email": db_creds.naukri_email if db_creds else "",
+            "has_password": bool(db_creds.naukri_password) if db_creds else False,
         },
         "ycombinator": {
-            "email": creds.get("yc_email", ""),
-            "has_password": bool(creds.get("yc_password")),
+            "email": db_creds.yc_email if db_creds else "",
+            "has_password": bool(db_creds.yc_password) if db_creds else False,
         },
     }
 

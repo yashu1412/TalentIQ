@@ -606,7 +606,10 @@ def get_static_questions(
 
 def get_role_round_types(role: str) -> list[str]:
     """Return the round types available for a given role."""
-    return ROLE_ROUND_TYPES.get(role, ["Technical", "Behavioral", "HR"])
+    round_types = ROLE_ROUND_TYPES.get(role, ["Technical", "Behavioral", "HR"])
+    if "Resume round" not in round_types:
+        round_types = [*round_types, "Resume round"]
+    return round_types
 
 
 def get_static_coaching_tips(n: int = 5) -> list[str]:
